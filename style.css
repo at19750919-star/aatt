@@ -24,7 +24,7 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
-}
+
 .stats-table td:last-child, .stats-table th:last-child {
   background: #24324a;
   font-weight: 700;
