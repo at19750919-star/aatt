@@ -50,25 +50,26 @@
               <div class="input"><label>莊家點</label><input id="bankerPoint" type="number" min="0" max="9" value="0"></div>
               <div class="input"><label>閒家點</label><input id="playerPoint" type="number" min="0" max="9" value="0"></div>
               <div class="input"><label>已用張</label><input id="usedCards" type="number" min="0" max="6" value="0"></div>
-              <button id="btnCut"><span id="spinCut" style="display:none" class="spinner"></span> 切牌</button>
-            <button id="btnScan">掃描</button>
-            <span class="small" id="scanInfo"></span>
-          </div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+                <div>
+                  <button id="btnCut"><span id="spinCut" style="display:none" class="spinner"></span> 切牌</button>
+                  <button id="btnScan">掃描</button>
+                </div>
+                <div>
+                  <button class="primary" id="btnExportCombined">導出</button>
+                  <button id="btnPreview">預覽</button>
+                </div>
+              </div>
+              <span class="small" id="scanInfo"></span>
+            </div>
         </div>
       </section>
 
       <!-- 統計與導出 -->
       <section class="card" id="card-stats">
-        <div class="head"><h3>統計與導出</h3><div class="small">花色+牌面統計 / 合併導出 / 大螢幕預覽</div></div>
+        <div class="head"><h3>統計</h3><div class="small">花色+牌面統計</div></div>
         <div class="body">
-          <div class="stats" id="suits"></div>
-          <div class="actions actions-vertical">
-            <div class="cut-summary" id="cutSummary" style="margin-bottom:12px"></div>
-            <div class="actions-btns">
-              <button class="primary" id="btnExportCombined">導出</button>
-              <button id="btnPreview">預覽</button>
-            </div>
-          </div>
+          <div class="stats" id="suits" style="max-width:100vw;"></div>
         </div>
       </section>
     </div>
