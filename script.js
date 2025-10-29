@@ -1,1407 +1,1054 @@
+// combined_final.js
+// 合併 9999.txt (結構化劃分) 和 wwa.txt (UI 框架、敏感局與訊號邏輯)
 // =============================================
 // --- START: waa.py translated logic ---
 // =============================================
+function makeRoundInfo(start, cards, result, sensitive) {
+const r = {
+start_index: start,
+cards: cards,
+result: result,
+sensitive: sensitive,
+segment: null,
+get suit_counts() {
+const counts = new Map();
+for (const card of this.cards) { counts.set(card.suit, (counts.get(card.suit) || 0) + 1); }
+return counts;
+},
+get card_count() { return this.cards.length; }
+};
+return r;
+}
+class Simulator {
+constructor(deck) { this.deck = deck; }
+simulate_round(start, { no_swap = false } = {}) {
+const d = this.deck;
+if (start + 3 >= d.length) return null;
+const [P1, B1, P2, B2] = d.slice(start, start + 4);
+let idx = start + 4;
+let p_tot = (P1.point() + P2.point()) % 10;
+let b_tot = (B1.point() + B2.point()) % 10;
+let natural = (p_tot === 8 || p_tot === 9 || b_tot === 8 || b_tot === 9);
+let p_cards = [P1, P2];
+let b_cards = [B1, B2];
+if (!natural) {
+let p3 = null;
+if (p_tot <= 5) {
+if (idx >= d.length) return null;
+p3 = d[idx]; p_cards.push(p3); idx++; p_tot = (p_tot + p3.point()) % 10;
+}
+if (p3 === null) {
+if (b_tot <= 5) {
+if (idx >= d.length) return null;
+let b3 = d[idx]; b_cards.push(b3); idx++; b_tot = (b_tot + b3.point()) % 10;
+}
+} else {
+const pt = p3.point();
+const draw = () => {
+if (idx >= d.length) return false;
+let b3 = d[idx]; b_cards.push(b3); idx++; b_tot = (b_tot + b3.point()) % 10; return true;
+};
+if (b_tot <= 2) {
+if (!draw()) return null;
+} else if (b_tot === 3 && pt !== 8) {
+if (!draw()) return null;
+} else if (b_tot === 4 && [1-6].includes(pt)) {
+if (!draw()) return null;
+} else if (b_tot === 5 && [3-6].includes(pt)) {
+if (!draw()) return null;
+} else if (b_tot === 6 && [5, 6].includes(pt)) {
+if (!draw()) return null;
+}
+}
+}
+const res = (p_tot === b_tot) ? '和' : ((p_tot > b_tot) ? '閒' : '莊');
+const used = d.slice(start, idx);
+if (no_swap) { return makeRoundInfo(start, used, res, false); }
+const [swap_res, same_len] = this._swap_result(start);
+const invalid_swap = (res === '和' && swap_res === '莊');
+const sensitive = ((swap_res !== null) && (swap_res !== res) && (swap_res !== '和') && (same_len === used.length) && !invalid_swap);
+return makeRoundInfo(start, used, res, sensitive);
+}
+_swap_result(start) {
+let d2 = [...this.deck];
+if (start + 1 >= d2.length) return [null, 0];
+[d2[start], d2[start + 1]] = [d2[start + 1], d2[start]];
+const sim2 = new Simulator(d2);
+const r2 = sim2.simulate_round(start, { no_swap: true });
+if (!r2) return [null, 0];
+return [r2.result, r2.cards.length];
+}
+}
 const WAA_Logic = (() => {
-  // --- waa.py: CONFIG ---
-  // 這些是從 waa.py 移植過來的預設值
-  const CONFIG = {
-    SEED: null,
-    MAX_ATTEMPTS: 1000000,
-    HEART_SIGNAL_ENABLED: true,
-    SIGNAL_SUIT: '♥',
-    TIE_SIGNAL_SUIT: '♣',
-    LATE_BALANCE_DIFF: 2,
-    COLOR_RULE_ENABLED: true,
-    MANUAL_TAIL: [],
-    NUM_SHOES: 1,
-    MIN_TAIL_STOP: 7,
-    MULTI_PASS_MIN_CARDS: 4,
-  };
-
-  // --- waa.py: 基本常數與資料結構 ---
-  const SUITS = ['♠', '♥', '♦', '♣'];
-  const NUM_DECKS = 8;
-  const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-  const CARD_VALUES = {
-    'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
-    '10': 0, 'J': 0, 'Q': 0, 'K': 0
-  };
-
-  // 輔助函式：洗牌 (Fisher-Yates shuffle)
-  function shuffle(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
+const CONFIG = {
+SEED: null,
+MAX_ATTEMPTS: 2000,
+HEART_SIGNAL_ENABLED: true,
+SIGNAL_SUIT: '♥',
+TIE_SIGNAL_SUIT: '♣',
+LATE_BALANCE_DIFF: 2,
+COLOR_RULE_ENABLED: true,
+MANUAL_TAIL: [],
+NUM_SHOES: 1,
+MIN_TAIL_STOP: 5,
+MULTI_PASS_MIN_CARDS: 25,
+};
+const SUITS = ['♠', '♥', '♦', '♣'];
+const NUM_DECKS = 8;
+const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const CARD_VALUES = {'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,'10': 0, 'J': 0, 'Q': 0, 'K': 0};
+/*** 洗牌函式，使用 Fisher-Yates 演算法隨機打亂陣列內容*/
+function shuffle(array) {
+for (let i = array.length - 1; i > 0; i--) {
+const j = Math.floor(Math.random() * (i + 1));
+[array[i], array[j]] = [array[j], array[i]];
+}
+}
+/**
+ * 統計陣列中每個元素出現的次數，回傳 Map
+ */
+function multiset(items) {
+const counts = new Map();
+for (const item of items) { counts.set(item, (counts.get(item) || 0) + 1); }
+return counts;
+}
+/**
+ * 比較兩個 Map 是否完全相等
+ */
+function mapEquals(map1, map2) {
+if (map1.size !== map2.size) return false;
+for (const [key, val] of map1) { if (val !== map2.get(key)) return false; }
+return true;
+}
+/**
+ * 產生陣列的所有 k 長度排列組合（遞迴產生器）
+ */
+function* permutations(array, k) {
+if (k === 0) { yield []; return; }
+for (let i = 0; i < array.length; i++) {
+const first = array[i];
+const rest = [...array.slice(0, i), ...array.slice(i + 1)];
+for (const p of permutations(rest, k - 1)) { yield [first, ...p]; }
+}
+}
+const SWAP_TRACE = [];
+let CURRENT_SWAP_CONTEXT = 'init';
+/**
+ * 重設交換追蹤紀錄
+ */
+function resetSwapTrace() {
+SWAP_TRACE.length = 0;
+}
+/**
+ * 設定交換上下文標籤，執行函式 fn
+ */
+function withSwapContext(label, fn) {
+const prev = CURRENT_SWAP_CONTEXT;
+CURRENT_SWAP_CONTEXT = label || 'unknown';
+try {
+return fn();
+} finally {
+CURRENT_SWAP_CONTEXT = prev;
+}
+}
+/**
+ * 取得卡牌交換追蹤用的簡短描述字串
+ */
+function describeCardForTrace(card) {
+if (!card) return 'unknown';
+const short = (card && typeof card.short === 'function') ? card.short() : `${card.rank || '?'}${card.suit || '?'}`;
+const round = (typeof card._round_index === 'number') ? `r${card._round_index}` : 'r?';
+const spot = (typeof card._card_index === 'number') ? `c${card._card_index}` : '';
+const seg = card._segment ? `-${card._segment}` : '';
+return `${short}@${round}${seg}${spot}`;
+}
+/**
+ * 推送交換追蹤紀錄到 SWAP_TRACE
+ */
+function pushSwapTrace(entry) {
+SWAP_TRACE.push(entry);
+if (typeof console !== 'undefined' && console.debug) {
+console.debug(`[swap ${entry.step}] ${entry.context}: ${entry.a_before} <-> ${entry.b_before}`);
+}
+}
+if (typeof window !== 'undefined') {
+window.SWAP_TRACE = SWAP_TRACE;
+window.resetSwapTrace = resetSwapTrace;
+}
+/**
+ * 交換兩張同點數卡牌的花色
+ * @deprecated - 此函式已被廢棄，改為使用物理交換的 swap_cards_by_position
+ */
+/*
+function swap_suits_between_same_rank_cards(card1, card2) {
+    if (card1.rank !== card2.rank) { throw new Error("Swap Error: Cards must have the same rank for suit exchange."); }
+    const entry = {
+        step: SWAP_TRACE.length + 1,
+        context: CURRENT_SWAP_CONTEXT || 'unknown',
+        a_before: describeCardForTrace(card1),
+        b_before: describeCardForTrace(card2),
+        timestamp: Date.now(),
+    };
+    const suitA = card1.suit;
+    const suitB = card2.suit;
+    [card1.suit, card2.suit] = [suitB, suitA];
+    entry.a_after = describeCardForTrace(card1);
+    entry.b_after = describeCardForTrace(card2);
+    pushSwapTrace(entry);
+}
+*/
+/**
+ * [CHN] 【新版核心】交換兩張牌在總牌靴 (deck) 中的物理位置。
+ *      - 這個操作只交換位置，牌本身的所有屬性（rank, suit, color）都保持不變。
+ *      - 這是符合物理現實的交換。
+ *
+ * @param {Array} deck - 完整的、包含所有卡牌的總牌靴陣列。
+// =====================【V6 最終正確版 - 替換舊的 swap_suits...】=====================
+/**
+ * [CHN] 【V6 終極正確版】交換兩個在 final_rounds 中的卡牌物件
+ *      - 這個函式直接修改 final_rounds 的結構，確保 UI 能正確反映交換結果。
+ *      - 它依賴於一個能訪問到當前總牌局陣列的地方 (我們將使用全域的 INTERNAL_STATE.rounds)。
+ *
+ * @param {Card} card1 - 要交換的第一張牌物件。
+ * @param {Card} card2 - 要交換的第二張牌物件。
+ */
+function swap_cards_in_rounds(card1, card2) {
+    // 依賴全域的 INTERNAL_STATE.rounds 來定位和修改
+    const rounds = INTERNAL_STATE.rounds;
+    if (!rounds) {
+        console.error("交換失敗：INTERNAL_STATE.rounds 未定義。");
+        return;
     }
-  }
 
-  // 輔助函式： Counter
-  function multiset(items) {
-    const counts = new Map();
-    for (const item of items) {
-      counts.set(item, (counts.get(item) || 0) + 1);
-    }
-    return counts;
-  }
+    let info1 = null, info2 = null;
 
-  // 輔助函式：比較兩個 Map 是否相等
-  function mapEquals(map1, map2) {
-    if (map1.size !== map2.size) return false;
-    for (const [key, val] of map1) {
-      if (val !== map2.get(key)) return false;
-    }
-    return true;
-  }
-  
-  // 輔助函式： itertools.permutations
-  function* permutations(array, k) {
-    if (k === 0) {
-      yield [];
-      return;
-    }
-    for (let i = 0; i < array.length; i++) {
-      const first = array[i];
-      const rest = [...array.slice(0, i), ...array.slice(i + 1)];
-      for (const p of permutations(rest, k - 1)) {
-        yield [first, ...p];
-      }
-    }
-  }
-
-
-  class Card {
-    constructor(rank, suit, pos) {
-      this.rank = rank;
-      this.suit = suit;
-      this.pos = pos; // 0..415 在原靴的絕對索引
-      this.color = null; // 'R' 或 'B'
-    }
-    point() { return CARD_VALUES[this.rank]; }
-    short() { return `${this.rank}${this.suit}`; }
-    // 為了安全複製
-    clone(newPos = this.pos) {
-      const newCard = new Card(this.rank, this.suit, newPos);
-      newCard.color = this.color;
-      return newCard;
-    }
-  }
-
-  function build_shuffled_deck() {
-    const base = [];
-    for (const s of SUITS) {
-      for (const r of RANKS) {
-        base.push(new Card(r, s, -1));
-      }
-    }
-    let deck = [];
-    for (let i = 0; i < NUM_DECKS; i++) {
-      deck.push(...base.map(c => new Card(c.rank, c.suit, -1)));
-    }
-    shuffle(deck);
-    deck.forEach((c, i) => c.pos = i);
-    return deck;
-  }
-
-  class Simulator {
-    constructor(deck) {
-      this.deck = deck;
-    }
-
-    simulate_round(start, { no_swap = false } = {}) {
-      const d = this.deck;
-      if (start + 3 >= d.length) return null;
-      
-      const [P1, B1, P2, B2] = d.slice(start, start + 4);
-      let idx = start + 4;
-      let p_tot = (P1.point() + P2.point()) % 10;
-      let b_tot = (B1.point() + B2.point()) % 10;
-      let natural = (p_tot === 8 || p_tot === 9 || b_tot === 8 || b_tot === 9);
-      let p_cards = [P1, P2];
-      let b_cards = [B1, B2];
-
-      if (!natural) {
-        let p3 = null;
-        if (p_tot <= 5) {
-          if (idx >= d.length) return null;
-          p3 = d[idx]; p_cards.push(p3); idx++; p_tot = (p_tot + p3.point()) % 10;
+    // 為了效能，一次循環找到兩張牌的位置
+    for (let i = 0; i < rounds.length; i++) {
+        const cards = rounds[i].cards;
+        if (!info1) {
+            const c1_idx = cards.indexOf(card1);
+            if (c1_idx !== -1) {
+                info1 = { r_idx: i, c_idx: c1_idx };
+            }
         }
-        if (p3 === null) {
-          if (b_tot <= 5) {
-            if (idx >= d.length) return null;
-            let b3 = d[idx]; b_cards.push(b3); idx++; b_tot = (b_tot + b3.point()) % 10;
-          }
-        } else {
-          const pt = p3.point();
-          const draw = () => {
-            if (idx >= d.length) return false;
-            let b3 = d[idx]; b_cards.push(b3); idx++; b_tot = (b_tot + b3.point()) % 10; return true;
-          };
-          if (b_tot <= 2) {
-            if (!draw()) return null;
-          } else if (b_tot === 3 && pt !== 8) {
-            if (!draw()) return null;
-          } else if (b_tot === 4 && [2, 3, 4, 5, 6, 7].includes(pt)) {
-            if (!draw()) return null;
-          } else if (b_tot === 5 && [4, 5, 6, 7].includes(pt)) {
-            if (!draw()) return null;
-          } else if (b_tot === 6 && [6, 7].includes(pt)) {
-            if (!draw()) return null;
-          }
+        if (!info2) {
+            const c2_idx = cards.indexOf(card2);
+            if (c2_idx !== -1) {
+                info2 = { r_idx: i, c_idx: c2_idx };
+            }
         }
-      }
-
-      const res = (p_tot === b_tot) ? '和' : ((p_tot > b_tot) ? '閒' : '莊');
-      const used = d.slice(start, idx);
-      if (no_swap) {
-        return { start_index: start, cards: used, result: res, sensitive: false };
-      }
-
-      const [swap_res, same_len] = this._swap_result(start);
-      const invalid_swap = (res === '和' && swap_res === '莊');
-      const sensitive = (
-        (swap_res !== null) &&
-        (swap_res !== res) &&
-        (swap_res !== '和') &&
-        (same_len === used.length) &&
-        !invalid_swap
-      );
-      return { start_index: start, cards: used, result: res, sensitive: sensitive };
+        if (info1 && info2) break; // 兩張都找到了，就跳出
     }
 
-    _swap_result(start) {
-      let d2 = [...this.deck]; // 淺複製
-      if (start + 1 >= d2.length) return [null, 0];
-      [d2[start], d2[start + 1]] = [d2[start + 1], d2[start]];
-      const sim2 = new Simulator(d2);
-      const r2 = sim2.simulate_round(start, { no_swap: true });
-      if (!r2) return [null, 0];
-      return [r2.result, r2.cards.length];
+    if (!info1 || !info2) {
+        console.error("交換失敗：無法在 INTERNAL_STATE.rounds 中定位到卡牌。");
+        if (!info1) console.error("Card1 not found:", card1.short());
+        if (!info2) console.error("Card2 not found:", card2.short());
+        return;
     }
-  }
-
-  function scan_all_sensitive_rounds(sim) {
-    const out = [];
-    const last = sim.deck.length - 1;
-    for (let i = 0; i < last; i++) {
-      const r = sim.simulate_round(i);
-      if (r && r.sensitive) {
-        out.push(r);
-      }
-    }
-    return out;
-  }
-
-  function multi_pass_candidates_from_cards_simple(card_pool) {
-    if (card_pool.length < 4) return [];
-    
-    let shuffled = [...card_pool];
-    shuffle(shuffled);
-    
-    const temp_cards = shuffled.map((c, i) => new Card(c.rank, c.suit, i));
-    const idx2orig = new Map(shuffled.map((c, i) => [i, c]));
-    const temp_sim = new Simulator(temp_cards);
-
-    const out = [];
-    const used_idx = new Set();
-    let i = 0;
-    while (i < temp_cards.length - 3) {
-      if (used_idx.has(i)) {
-        i++; continue;
-      }
-      const r = temp_sim.simulate_round(i);
-      if (!r) {
-        i++; continue;
-      }
-      const temp_indices = r.cards.map(c => c.pos);
-      if (temp_indices.some(ti => used_idx.has(ti))) {
-        i++; continue;
-      }
-      if (!r.sensitive) {
-        i += r.cards.length; continue;
-      }
-      
-      const ordered = [];
-      const seen = new Set();
-      let valid = true;
-      for (const ti of temp_indices) {
-        const oc = idx2orig.get(ti);
-        if (seen.has(oc.pos)) { valid = false; break; }
-        ordered.push(oc); seen.add(oc.pos);
-      }
-      if (!valid) {
-        i++; continue;
-      }
-      
-      const start_pos = ordered[0].pos;
-      out.push({ start_index: start_pos, cards: ordered, result: r.result, sensitive: true });
-      temp_indices.forEach(ti => used_idx.add(ti));
-      i = Math.max(...temp_indices) + 1;
-    }
-    return out;
-  }
-  
-  function _seq_result(cards) {
-    if (!cards || cards.length < 4) return null;
-    const tmp = cards.map((c, i) => new Card(c.rank, c.suit, i));
-    const sim = new Simulator(tmp);
-    const r = sim.simulate_round(0);
-    return r ? r.result : null;
-  }
-
-  // 這是 app.py 和 waa.py 都需要的輔助函式
-  const _seq_points = (cards) => {
-    if (!cards || cards.length < 4) {
-      return null;
-    }
-    
-    const temp_deck = cards.map((c, i) => new Card(c.rank, c.suit, i));
-    
-    const [P1, B1, P2, B2] = temp_deck.slice(0, 4);
-    
-    let p_tot = (P1.point() + P2.point()) % 10;
-    let b_tot = (B1.point() + B2.point()) % 10;
-    
-    let is_natural = (p_tot === 8 || p_tot === 9 || b_tot === 8 || b_tot === 9);
-    
-    let card_idx = 4;
-    if (!is_natural) {
-      let p3 = null;
-      if (p_tot <= 5) {
-        if (card_idx < temp_deck.length) {
-          p3 = temp_deck[card_idx];
-          p_tot = (p_tot + p3.point()) % 10;
-          card_idx++;
-        }
-      }
-      
-      if (p3 === null) {
-        if (b_tot <= 5) {
-          if (card_idx < temp_deck.length) {
-            let b3 = temp_deck[card_idx];
-            b_tot = (b_tot + b3.point()) % 10;
-          }
-        }
-      } else {
-        const p3_point = p3.point();
-        let should_draw = false;
-        if (b_tot <= 2) should_draw = true;
-        else if (b_tot === 3 && p3_point !== 8) should_draw = true;
-        else if (b_tot === 4 && [2, 3, 4, 5, 6, 7].includes(p3_point)) should_draw = true;
-        else if (b_tot === 5 && [4, 5, 6, 7].includes(p3_point)) should_draw = true;
-        else if (b_tot === 6 && [6, 7].includes(p3_point)) should_draw = true;
-        
-        if (should_draw && card_idx < temp_deck.length) {
-          let b3 = temp_deck[card_idx];
-          b_tot = (b_tot + b3.point()) % 10;
-        }
-      }
-    }
-    return [b_tot, p_tot];
-  };
-
-  function _is_sensitive_sequence(cards) {
-    if (cards.length < 4) return false;
-    const temp = cards.map((c, i) => new Card(c.rank, c.suit, i));
-    const sim = new Simulator(temp);
-    const r = sim.simulate_round(0);
-    return Boolean(r && r.sensitive && r.cards.length === temp.length);
-  }
-
-  function try_make_tail_sensitive(tail_cards) {
-    const k = tail_cards.length;
-    if (![4, 5, 6].includes(k)) return null;
-
-    // 啟發式
-    const heuristics = [];
-    heuristics.push([...tail_cards]);
-    heuristics.push([...tail_cards].reverse());
-    if (k >= 2) {
-      let t = [...tail_cards]; [t[0], t[1]] = [t[1], t[0]]; heuristics.push(t);
-    }
-    if (k >= 3) {
-      let t = [...tail_cards]; [t[1], t[2]] = [t[2], t[1]]; heuristics.push(t);
-    }
-    for (const cand of heuristics) {
-      if (_is_sensitive_sequence(cand)) return cand;
-    }
-
-    // 全排列
-    for (const perm of permutations(tail_cards, k)) {
-      if (_is_sensitive_sequence(perm)) return perm;
-    }
-    return null;
-  }
-
-  function try_manual_tail(tail_cards, manual) {
-    if (!manual || manual.length === 0) return null;
-    
-    const target_ms = multiset(manual);
-    const avail_ms = multiset(tail_cards.map(c => c.short()));
-    
-    if (!mapEquals(target_ms, avail_ms)) return null;
-
-    const short2stack = new Map();
-    for (const c of tail_cards) {
-      const short = c.short();
-      if (!short2stack.has(short)) short2stack.set(short, []);
-      short2stack.get(short).push(c);
-    }
-    
-    const ordered = [];
-    for (const face of manual) {
-      ordered.push(short2stack.get(face).pop());
-    }
-    return _is_sensitive_sequence(ordered) ? ordered : null;
-  }
-  
-  const compute_sidx_new = (rounds) => {
-    const S = [];
-    for (let i = 0; i < rounds.length - 1; i++) {
-      if (rounds[i + 1].result === '莊') {
-        S.push(i);
-      }
-    }
-    return S;
-  };
-
-  function swap_suits_between_same_rank_cards(card1, card2) {
-    if (card1.rank !== card2.rank) {
-      return;
-    }
-
-    // 記錄交換前的狀態
-    const original_c1_short = card1.short();
-    const original_c2_short = card2.short();
 
     // 執行交換
-    [card1.suit, card2.suit] = [card2.suit, card1.suit];
+    const { r_idx: r1, c_idx: c1 } = info1;
+    const { r_idx: r2, c_idx: c2 } = info2;
 
-  // （已移除花色交換成功的詳細日誌，只保留決策日誌）
-  }
+    [rounds[r1].cards[c1], rounds[r2].cards[c2]] = [rounds[r2].cards[c2], rounds[r1].cards[c1]];
 
-
-  function _ensure_signal_presence(rounds, signal_suit, s_idx) {
-    const donors = [];
-    rounds.forEach((r, i) => {
-      if (s_idx.includes(i)) return;
-      r.cards.forEach((card, j) => {
-        if (card.suit === signal_suit) {
-          donors.push([i, j]);
-        }
-      });
-    });
-
-    const locked_ids = new Set();
-    
-    for (const idx of s_idx) {
-      const rv = rounds[idx];
-      if (rv.cards.some(card => card.suit === signal_suit)) continue;
-      
-      const receivers = rv.cards
-        .map((card, j) => (card.suit !== signal_suit ? j : -1))
-        .filter(j => j !== -1);
-      
-      if (donors.length === 0 || receivers.length === 0) {
-        throw new Error("Insufficient signal suit donors for S_idx coverage");
-      }
-      
-      let found_swap = false;
-      for (let rk_idx = 0; rk_idx < receivers.length; rk_idx++) {
-        const rk = receivers[rk_idx];
-        const receiver_card = rv.cards[rk];
-        for (let d_idx = 0; d_idx < donors.length; d_idx++) {
-          const [di, dj] = donors[d_idx];
-          const donor_card = rounds[di].cards[dj];
-          
-          if (receiver_card.rank === donor_card.rank) {
-            swap_suits_between_same_rank_cards(receiver_card, donor_card);
-            donors.splice(d_idx, 1);
-            receivers.splice(rk_idx, 1);
-            found_swap = true;
-            break;
-          }
-        }
-        if (found_swap) break;
-      }
-      
-      if (!found_swap) {
-        throw new Error("S_idx 備用方案失敗：找不到同點數的牌進行交換。");
-      }
-    }
-    
-    for (const idx of s_idx) {
-      for (const card of rounds[idx].cards) {
-        if (card.suit === signal_suit) {
-          locked_ids.add(card); // 在 JS 中，直接添加物件引用
-        }
-      }
-    }
-    return locked_ids;
-  }
-  
-  function _is_tie_result(result) {
-    if (typeof result !== 'string') return false;
-    const val = result.trim();
-    return ['和', 'Tie', 'T'].includes(val);
-  }
-
-  function enforce_tie_signal(rounds, tie_suit) {
-    if (!tie_suit) return new Set();
-    
-    const tie_indices = [];
-    for (let idx = 0; idx < rounds.length - 1; idx++) {
-      if (_is_tie_result(rounds[idx + 1].result)) {
-        tie_indices.push(idx);
-      }
-    }
-    const locked_ids = new Set();
-    
-    for (const idx of tie_indices) {
-      const rv = rounds[idx];
-      for (const card_to_replace of rv.cards) {
-        if (card_to_replace.suit === tie_suit) {
-          locked_ids.add(card_to_replace);
-          continue;
-        }
-
-        let found_donor = null;
-        for (let other_idx = 0; other_idx < rounds.length; other_idx++) {
-          if (other_idx === idx) continue;
-          const other_rv = rounds[other_idx];
-          for (const donor_card of other_rv.cards) {
-            if (donor_card.rank === card_to_replace.rank &&
-                donor_card.suit === tie_suit &&
-                !locked_ids.has(donor_card)) {
-              found_donor = donor_card;
-              break;
-            }
-          }
-          if (found_donor) break;
-        }
-        
-        if (found_donor) {
-          swap_suits_between_same_rank_cards(card_to_replace, found_donor);
-          locked_ids.add(card_to_replace);
-        } else {
-          // **【關鍵】** 這是導致重試的主要原因
-          throw new Error(`Tie signal enforcement failed: Cannot find donor for ${card_to_replace.short()}`);
-        }
-      }
-    }
-    
-    const alt_suits = SUITS.filter(s => s !== tie_suit) || [tie_suit];
-    for (let idx = 0; idx < rounds.length; idx++) {
-      if (tie_indices.includes(idx)) continue;
-      const rv = rounds[idx];
-      const tie_count = rv.cards.filter(card => card.suit === tie_suit).length;
-      if (tie_count === rv.cards.length && rv.cards.length > 0) {
-        rv.cards[0].suit = alt_suits[Math.floor(Math.random() * alt_suits.length)];
-      }
-    }
-    return locked_ids;
-  }
-
-  function balance_non_tie_suits(rounds, tie_suit, locked_ids, tolerance) {
-    if (!tie_suit) return;
-    const other_suits = SUITS.filter(s => s !== tie_suit);
-    if (other_suits.length === 0) return;
-
-    const counts = () => {
-      const c = new Map();
-      for (const rv of rounds) {
-        for (const card of rv.cards) {
-          c.set(card.suit, (c.get(card.suit) || 0) + 1);
-        }
-      }
-      return c;
-    };
-
-    for (let i = 0; i < 160; i++) {
-      const c = counts();
-      let total_other = 0;
-      other_suits.forEach(s => total_other += (c.get(s) || 0));
-      if (total_other === 0) return;
-      
-      const target = total_other / other_suits.length;
-      const hi = other_suits.reduce((a, b) => ((c.get(a) || 0) - target) > ((c.get(b) || 0) - target) ? a : b);
-      const lo = other_suits.reduce((a, b) => ((c.get(a) || 0) - target) < ((c.get(b) || 0) - target) ? a : b);
-
-      if ((c.get(hi) || 0) - target <= tolerance && target - (c.get(lo) || 0) <= tolerance) {
-        return;
-      }
-      
-      let moved = false;
-      const hi_cards = rounds.flatMap(r => r.cards).filter(card => card.suit === hi && !locked_ids.has(card));
-      const lo_cards = rounds.flatMap(r => r.cards).filter(card => card.suit === lo && !locked_ids.has(card));
-      
-      const lo_cards_by_rank = new Map();
-      for (const card of lo_cards) {
-        if (!lo_cards_by_rank.has(card.rank)) lo_cards_by_rank.set(card.rank, []);
-        lo_cards_by_rank.get(card.rank).push(card);
-      }
-
-      for (const hi_card of hi_cards) {
-        if (lo_cards_by_rank.has(hi_card.rank) && lo_cards_by_rank.get(hi_card.rank).length > 0) {
-          const lo_card = lo_cards_by_rank.get(hi_card.rank).pop();
-          swap_suits_between_same_rank_cards(hi_card, lo_card);
-          moved = true;
-          break;
-        }
-      }
-      if (!moved) break;
-    }
-  }
-
-    function validate_tie_signal(rounds, tie_suit) {
-    // 【修改點】整段邏輯清空，不再檢查排除規則。
-    // 這個函式現在什麼都不做，直接通過。
-    return;
-  }
+    // 為了日誌清晰，可以打印交換資訊
+    console.log(`[交換成功] 將 ${rounds[r2].cards[c2].short()} (原在局 #${r1+1}) 與 ${rounds[r1].cards[c1].short()} (原在局 #${r2+1}) 交換。`);
+}
+// =====================【V6 替換區塊結束】=====================
 
 
-  function enforce_suit_distribution(rounds, signal_suit, s_idx) {
-    const total_signal = rounds.flatMap(r => r.cards).filter(c => c.suit === signal_suit).length;
-    
-    let s_cap = 0;
-    s_idx.forEach(i => s_cap += rounds[i].cards.length);
-
-    if (s_idx.length > 0 && s_cap < total_signal) {
-      const msg = `S_idx 容量不足 (${s_cap})，無法容納所有 ${signal_suit} (${total_signal})`;
-      console.warn(`[驗證] ${msg}，S_idx 長度=${s_idx.length}`);
-      throw new Error(msg);
-    }
-
-    const donors = [];
-    rounds.forEach((r, i) => {
-      if (s_idx.includes(i)) return;
-      r.cards.forEach((card, j) => {
-        if (card.suit === signal_suit) {
-          donors.push([i, j]);
-        }
-      });
-    });
-
-    const locked_ids = new Set();
-    if (s_idx.length === 0) return locked_ids;
-
-    const target = new Array(rounds.length).fill(0);
-    let current_signal_sum = 0;
-    for (const i of s_idx) {
-      const cur_sig = rounds[i].cards.filter(c => c.suit === signal_suit).length;
-      target[i] = cur_sig;
-      current_signal_sum += cur_sig;
-    }
-    
-    let remain = total_signal - current_signal_sum;
-    if (remain > 0) {
-      const s_idx_sorted = [...s_idx].sort((a, b) => {
-        const cap_a = rounds[a].cards.length - target[a];
-        const cap_b = rounds[b].cards.length - target[b];
-        return cap_b - cap_a;
-      });
-      
-      let ptr = 0;
-      while (remain > 0) {
-        if (s_idx_sorted.length === 0) break; // 防止無限迴圈
-        const idx = s_idx_sorted[ptr];
-        if (target[idx] < rounds[idx].cards.length) {
-          target[idx]++;
-          remain--;
-        }
-        ptr = (ptr + 1) % s_idx_sorted.length;
-      }
-    }
-    
-    for (const i of s_idx) {
-      const cur_cnt = rounds[i].cards.filter(c => c.suit === signal_suit).length;
-      let need = target[i] - cur_cnt;
-      if (need <= 0) continue;
-      
-      const receivers = rounds[i].cards
-        .map((c, k) => (c.suit !== signal_suit ? k : -1))
-        .filter(k => k !== -1);
-      
-      for (let n = 0; n < need; n++) {
-        if (donors.length === 0 || receivers.length === 0) {
-          const msg = `[局 #${i}] 花色交換資源不足`;
-          console.warn(`[驗證] ${msg}：donors=${donors.length} receivers=${receivers.length}，S_idx 長度=${s_idx.length}`);
-          throw new Error(msg);
-        }
-        
-        let found_swap = false;
-        for (let rk_idx = 0; rk_idx < receivers.length; rk_idx++) {
-          const rk = receivers[rk_idx];
-          const receiver_card = rounds[i].cards[rk];
-          
-          for (let d_idx = 0; d_idx < donors.length; d_idx++) {
-            const [di, dj] = donors[d_idx];
-            const donor_card = rounds[di].cards[dj];
-            
-            // 第 789 行附近
-if (receiver_card.rank === donor_card.rank) {
-  // 【新增日誌】在執行交換前，打印出決策的完整上下文
-  console.log(
-      `%c[決策日誌] S局 #${i} 需要訊號牌，找到配對:`, "color: #8A2BE2; font-weight: bold;", // 紫色粗體
-      `將非S局(局 #${di})的 ${donor_card.short()} 與 S局(局 #${i})的 ${receiver_card.short()} 進行交換。`
-  );
-
-  // 【執行交換動作】
-  swap_suits_between_same_rank_cards(receiver_card, donor_card);
-  
-  // 更新資源列表...
-  donors.splice(d_idx, 1);
-  receivers.splice(rk_idx, 1);
-  
-  found_swap = true;
-  break;
+/**
+ * 卡牌類別，包含點數、花色、位置等屬性
+ */
+class Card {
+constructor(rank, suit, pos) {
+this.rank = rank;
+this.suit = suit;
+this.pos = pos;
+this.color = null;
+}
+point() { return CARD_VALUES[this.rank]; }
+short() { return `${this.rank}${this.suit}`; }
+clone(newPos = this.pos) {
+const newCard = new Card(this.rank, this.suit, newPos);
+newCard.color = this.color;
+newCard.back_color = this.back_color;
+newCard._fixed_first4 = this._fixed_first4;
+newCard._password_tag = this._password_tag;
+return newCard;
+}
+}
+/**
+ * 建立並洗牌一副完整的牌組
+ */
+function build_shuffled_deck() {
+const baseR = [];
+const baseB = [];
+for (const s of SUITS) {
+for (const r of RANKS) {
+baseR.push(new Card(r, s, -1));
+baseB.push(new Card(r, s, -1));
+}
+}
+let deck = [];
+for (let i = 0; i < 4; i++) {
+deck.push(...baseR.map(c => {
+const card = new Card(c.rank, c.suit, -1);
+card.back_color = 'R';
+card.color = 'R';
+return card;
+}));
+deck.push(...baseB.map(c => {
+const card = new Card(c.rank, c.suit, -1);
+card.back_color = 'B';
+card.color = 'B';
+return card;
+}));
+}
+shuffle(deck);
+deck.forEach((c, i) => c.pos = i);
+return deck;
 }
 
-          }
-          if (found_swap) break;
+
+/**
+ * 掃描所有敏感局，回傳敏感局陣列
+ */
+function scan_all_sensitive_rounds(sim) {
+const out = [];
+const last = sim.deck.length - 1;
+for (let i = 0; i < last; i++) {
+const r = sim.simulate_round(i);
+if (r && r.sensitive) { out.push(r); }
+}
+return out;
+}
+/**
+ * 從卡牌池中多重嘗試找出敏感局候選
+ */
+function multi_pass_candidates_from_cards_simple(card_pool) {// 如果牌池少於4張，無法組成一局，直接回傳空陣列   
+    if (card_pool.length < 4) return [];// 複製一份牌池並隨機洗牌    
+    let shuffled = [...card_pool];// 建立一份臨時卡牌（每張卡牌都重新編號 pos）
+    shuffle(shuffled);   
+    const temp_cards = shuffled.map((c, i) => c.clone(i));// 建立臨時編號到原始卡牌的對照表   
+    const idx2orig = new Map(shuffled.map((c, i) => [i, c]));// 用臨時卡牌建立模擬器  
+    const temp_sim = new Simulator(temp_cards);// 儲存所有找到的敏感局
+    const out = []; // 記錄已經用過的臨時卡牌編號
+    const used_idx = new Set();
+    let i = 0;// 從頭開始掃描，直到剩下不足4張  
+    while (i < temp_cards.length - 3) { // 跳過已經用過的起始位置      
+        if (used_idx.has(i)) { i++; continue; }// 嘗試從第 i 張開始模擬一局    
+        const r = temp_sim.simulate_round(i); // 如果模擬失敗（牌不夠或規則不符），跳到下一張     
+        if (!r) { i++; continue; }// 取得這局用到的所有臨時卡牌編號      
+        const temp_indices = r.cards.map(c => c.pos);// 如果這局有用到已經用過的卡牌，跳過       
+        if (temp_indices.some(ti => used_idx.has(ti))) { i++; continue; }// 如果這局不是敏感局，直接跳過這局所用的所有卡牌      
+        if (!r.sensitive) { i += r.cards.length; continue; } // 準備把臨時卡牌對照回原始卡牌     
+        const ordered = [];
+        const seen = new Set();
+        let valid = true;
+        for (const ti of temp_indices) {
+            const oc = idx2orig.get(ti);// 如果原始卡牌重複，這局無效            
+            if (seen.has(oc.pos)) { valid = false; break; }
+            ordered.push(oc); seen.add(oc.pos);// 如果有重複卡牌，跳過
         }
         
-        if (!found_swap) {
-          throw new Error(`[局 #${i}] 花色交換失敗：找不到同點數的牌進行交換。`);
-        }
-      }
+        if (!valid) { i++; continue; }// 取得這局的起始位置（原始卡牌的 pos）       
+        const start_pos = ordered.pos; // 加入敏感局到結果     
+        out.push(makeRoundInfo(start_pos, ordered, r.result, true));// 標記這局用到的所有臨時卡牌編號       
+        temp_indices.forEach(ti => used_idx.add(ti));// 跳到下一個未用過的卡牌位置       
+        i = Math.max(...temp_indices) + 1;// 回傳所有找到的敏感局
     }
-    
-    if (donors.length > 0) {
-      throw new Error(`Leftover signal-suit donors after allocation: ${donors.length}`);
-    }
-    
-    for (const i of s_idx) {
-      for (const card of rounds[i].cards) {
-        if (card.suit === signal_suit) {
-          locked_ids.add(card);
-        }
-      }
-    }
-    return locked_ids;
-  }
-
-  function late_balance(rounds, locked_ids, diff, signal_suit, tie_suit = null) {
-    const counts = () => {
-      const c = new Map();
-      for (const r of rounds) {
-        for (const card of r.cards) {
-          c.set(card.suit, (c.get(card.suit) || 0) + 1);
-        }
-      }
-      return c;
-    };
-
-    for (let i = 0; i < 120; i++) {
-      const c = counts();
-      const excluded = new Set([signal_suit, tie_suit].filter(Boolean));
-      const suits_to_balance = SUITS.filter(s => !excluded.has(s));
-      if (suits_to_balance.length < 2) return true;
-      
-      const hi = suits_to_balance.reduce((a, b) => (c.get(a) || 0) > (c.get(b) || 0) ? a : b);
-      const lo = suits_to_balance.reduce((a, b) => (c.get(a) || 0) < (c.get(b) || 0) ? a : b);
-
-      if ((c.get(hi) || 0) - (c.get(lo) || 0) <= diff) return true;
-      
-      let moved = false;
-      const hi_cards = rounds.flatMap(r => r.cards).filter(card => card.suit === hi && !locked_ids.has(card));
-      const lo_cards = rounds.flatMap(r => r.cards).filter(card => card.suit === lo && !locked_ids.has(card));
-
-      const lo_cards_by_rank = new Map();
-      for (const card of lo_cards) {
-        if (!lo_cards_by_rank.has(card.rank)) lo_cards_by_rank.set(card.rank, []);
-        lo_cards_by_rank.get(card.rank).push(card);
-      }
-
-      for (const hi_card of hi_cards) {
-        if (lo_cards_by_rank.has(hi_card.rank) && lo_cards_by_rank.get(hi_card.rank).length > 0) {
-          const lo_card = lo_cards_by_rank.get(hi_card.rank).pop();
-          swap_suits_between_same_rank_cards(hi_card, lo_card);
-          moved = true;
-          break;
-        }
-      }
-      if (!moved) break;
-    }
-    
-    // 最終驗證
-    const c = counts();
-    const excluded = new Set([signal_suit, tie_suit].filter(Boolean));
-    const suits_to_balance = SUITS.filter(s => !excluded.has(s));
-    const filtered = suits_to_balance.map(s => c.get(s) || 0);
-    const final_diff = filtered.length > 0 ? (Math.max(...filtered) - Math.min(...filtered)) : 0;
-    const ok = final_diff <= diff;
-    if (!ok) {
-      const dist = suits_to_balance.map(s => `${s}:${c.get(s) || 0}`).join(', ');
-      console.warn(`[驗證] 花色平衡失敗：允許差<=${diff}，分佈=(${dist})`);
-    }
-    return ok;
-  }
-
-  function _apply_color_rule_for_shoe(round_views, tail) {
-    const all_cards = [...round_views.flatMap(rv => rv.cards), ...(tail || [])];
-    const total = all_cards.length;
-    let red_left = Math.floor(total / 2);
-    let black_left = total - red_left;
-
-
-    // 顏色配額扣除工具
-    const use = (color, k) => {
-      // color: 'R' 或 'B', k: 要扣除的數量
-      if (color === 'R') {
-        if (red_left < k) return false;
-        red_left -= k;
-      } else {
-        if (black_left < k) return false;
-        black_left -= k;
-      }
-      return true;
-    };
-
-    // 分配每局前四張顏色，並標記不可動
-    const assign_first_four = (seq) => {
-      const k = Math.min(4, seq.length);
-      if (k === 0) return;
-      // 黑黑黑紅/紅紅紅黑模式
-      const pat1 = ['B', 'B', 'B', 'R']; // 黑黑黑紅
-      const pat2 = ['R', 'R', 'R', 'B']; // 紅紅紅黑
-      const count = (arr, val) => arr.filter(x => x === val).length;
-      const need1_r = count(pat1.slice(0, k), 'R');
-      const need1_b = count(pat1.slice(0, k), 'B');
-      const need2_r = count(pat2.slice(0, k), 'R');
-      const need2_b = count(pat2.slice(0, k), 'B');
-      const ok1 = (red_left >= need1_r && black_left >= need1_b);
-      const ok2 = (red_left >= need2_r && black_left >= need2_b);
-      if (!ok1 && !ok2) throw new Error("顏色配額不足（前四張模式無可用方案）");
-      let chosen = null;
-      if (ok1 && ok2) chosen = (Math.random() < 0.5) ? pat1 : pat2;
-      else if (ok1) chosen = pat1;
-      else chosen = pat2;
-      if (!use('R', count(chosen.slice(0, k), 'R')) || !use('B', count(chosen.slice(0, k), 'B'))) {
-        throw new Error("顏色配額不足（使用時發生不一致）");
-      }
-      for (let i = 0; i < k; i++) {
-        seq[i].color = (chosen[i] === 'R') ? 'R' : 'B';
-        seq[i]._fixed_first4 = true; // 標記前四張不可動
-      }
-    };
-
-    // 依序分配每局前四張顏色
-    for (const rv of round_views) {
-      assign_first_four(rv.cards);
-    }
-    if (tail) {
-      assign_first_four(tail);
-    }
-
-    // 分配剩餘卡牌顏色（不動前四張）
-    const fill_rest_robust = (all_cards_seq) => {
-      // 只選取未分配顏色且非前四張的卡牌
-      const uncolored = all_cards_seq.filter(c => c.color === null && !c._fixed_first4);
-      let color_pool = [...new Array(red_left).fill('R'), ...new Array(black_left).fill('B')];
-      // 檢查配額
-      if (uncolored.length !== color_pool.length) {
-        if (uncolored.length > color_pool.length) {
-            throw new Error(`顏色分配邏輯錯誤：未上色牌數 ${uncolored.length} 與剩餘配額 ${color_pool.length} 不符。`);
-        } else {
-            color_pool = color_pool.slice(0, uncolored.length);
-        }
-      }
-      shuffle(color_pool);
-      for (const card of uncolored) {
-        card.color = color_pool.pop();
-      }
-      red_left = 0;
-      black_left = 0;
-    };
-    fill_rest_robust(all_cards);
-    
-    if (red_left !== 0 || black_left !== 0) {
-      console.error(`顏色配額未對齊, 剩餘 R:${red_left}, B:${black_left}`);
-    }
-    // 額外修正：確保每種 rank+suit 紅黑各4張（只動剩餘卡牌，不動前四張）
-    // 1. 統計每種 rank+suit 的紅黑分布
-    const byRankSuit = {};
-    for (const card of all_cards) {
-      const key = `${card.rank}_${card.suit}`;
-      if (!byRankSuit[key]) byRankSuit[key] = [];
-      byRankSuit[key].push(card);
-    }
-    for (const cards of Object.values(byRankSuit)) {
-      // 只處理 8 張的情況
-      if (cards.length === 8) {
-        // 2. 計算前四張（不可動）紅黑數量
-        const fixed = cards.filter(c => c._fixed_first4);
-        const flex = cards.filter(c => !c._fixed_first4);
-        let reds = fixed.filter(c => c.color === 'R').length;
-        let blacks = fixed.filter(c => c.color === 'B').length;
-        // 3. 剩餘卡牌分配紅黑，使總數各4
-        let flexReds = flex.filter(c => c.color === 'R');
-        let flexBlacks = flex.filter(c => c.color === 'B');
-        // 需要補多少
-        let needRed = 4 - reds;
-        let needBlack = 4 - blacks;
-        // 若剩餘卡牌紅黑分布不符，則調整
-        if (flex.length !== needRed + needBlack) {
-          // 無法均衡，丟錯誤（外層可重試）
-          throw new Error(`rank+suit ${cards[0].rank}${cards[0].suit} 無法均衡紅黑分配`);
-        }
-        // 先全部設為 null
-        flex.forEach(c => c.color = null);
-        // 分配紅色
-        flex.slice(0, needRed).forEach(c => c.color = 'R');
-        // 分配黑色
-        flex.slice(needRed, needRed + needBlack).forEach(c => c.color = 'B');
-      }
-    }
-  }
-
-  function pack_all_sensitive_once(deck, { min_tail_stop, multi_pass_min_cards }) {
-    const sim = new Simulator(deck);
-    const all_sensitive = scan_all_sensitive_rounds(sim);
-    
-    const used_pos = new Set();
-    const out_rounds = [];
-
-    for (const r of all_sensitive) {
-      if (r.cards.some(c => used_pos.has(c.pos))) continue;
-      out_rounds.push(r);
-      r.cards.forEach(c => used_pos.add(c.pos));
-    }
-
-    while (true) {
-      const remaining = deck.filter(c => !used_pos.has(c.pos));
-      if (remaining.length < multi_pass_min_cards) break;
-      if (remaining.length < min_tail_stop) break;
-      
-      const cands = multi_pass_candidates_from_cards_simple(remaining);
-      if (cands.length === 0) break;
-      
-      const picked = cands[0];
-      if (picked.cards.some(c => used_pos.has(c.pos))) break;
-      
-      out_rounds.push(picked);
-      picked.cards.forEach(c => used_pos.add(c.pos));
-    }
-
-    let tail = deck.filter(c => !used_pos.has(c.pos));
-    if (![0, 4, 5, 6].includes(tail.length)) return null;
-    
-    if (tail.length === 0) {
-      return [out_rounds, []];
-    }
-    
-    // 【修改點】移除手動指定邏輯，直接進行自動排列
-    let auto_seq = try_make_tail_sensitive(tail);
-    if (!auto_seq) {
-      return null; // 如果自動排列失敗，則中止
-    }
-    tail = auto_seq; // 使用自動排列成功的結果
-    
-    out_rounds.sort((a, b) => a.start_index - b.start_index);
-    return [out_rounds, tail];
-  }
-
-  // **【v3 修改】** 新增 log_attempt_failure 參數，用於回報失敗原因
-  function apply_shoe_rules(
-    rounds, tail, 
-    { signal_suit, tie_suit, late_diff },
-    log_attempt_failure
-  ) {
-    const round_views = rounds.map(r => ({ cards: r.cards, result: r.result }));
-    if (tail && tail.length > 0) {
-      const tail_res = _seq_result(tail);
-      if (tail_res) {
-        round_views.push({ cards: tail, result: tail_res });
-      }
-    }
-    let locked_ids = new Set();
-
-    if (tie_suit) {
-      try {
-        locked_ids = new Set([...locked_ids, ...enforce_tie_signal(round_views, tie_suit)]);
-      } catch (e) { 
-        log_attempt_failure(`Tie signal failed: ${e.message}`); // 回報錯誤
-        return false; 
-      }
-    }
-
-    if (signal_suit) {
-      // **【v5 修正】** // 1. 使用 Set 來儲存 s_idx，方便我們新增 "環繞" 規則
-      const s_idx_set = new Set(compute_sidx_new(round_views));
-
-      // 2. 檢查環繞條件 (尾局 -> 第 1 局)
-      //    如果第 1 局(index 0)是 '莊'
-      if (round_views.length > 0 && round_views[0].result === '莊') {
-         // 並且尾局存在 (它是 round_views 的最後一項)
-         const tail_round_index = round_views.length - 1;
-         if (tail_round_index >= 0) {
-             // 就把尾局的索引也加入 S_idx 強制執行列表
-             s_idx_set.add(tail_round_index);
-         }
-      }
-      
-      // 3. 將 Set 轉回 Array，給後續函式使用
-      const s_idx = Array.from(s_idx_set); 
-      
-      try {
-        locked_ids = new Set([...locked_ids, ...enforce_suit_distribution(round_views, signal_suit, s_idx)]);
-      } catch (e) {
-        log_attempt_failure(`Signal suit (main) failed: ${e.message}`); // 回報錯誤
-        try {
-          locked_ids = new Set([...locked_ids, ..._ensure_signal_presence(round_views, signal_suit, s_idx)]);
-        } catch (e2) { 
-          log_attempt_failure(`Signal suit (fallback) failed: ${e2.message}`); // 回報錯誤
-          return false; 
-        }
-      }
-    }
-    
-    if (!late_balance(round_views, locked_ids, late_diff, signal_suit, tie_suit)) {
-      log_attempt_failure('Late balance failed'); // 回報錯誤
-      return false;
-    }
-
-    if (tie_suit) {
-      balance_non_tie_suits(round_views, tie_suit, locked_ids, late_diff);
-    }
-    
-    if (tie_suit) {
-      try {
-        validate_tie_signal(round_views, tie_suit);
-      } catch (e) { 
-        log_attempt_failure(`Tie signal validation failed: ${e.message}`); // 回報錯誤
-        return false; 
-      }
-    }
-
-    if (CONFIG.COLOR_RULE_ENABLED) {
-        try {
-             _apply_color_rule_for_shoe(round_views, tail);
-        } catch (e) {
-            log_attempt_failure(`Color rule failed: ${e.message}`); // 回報錯誤
-            return false;
-        }
-    }
-
-    return true;
-  }
-
-  // **【v3 修改】** // 1. 整個函式改為 async
-  // 2. 傳入 updateStatus 和 log_attempt_failure 函式
-  // 3. 將 for 迴圈改為 async while 迴圈，並在迴圈中 await
-  async function generate_all_sensitive_shoe_or_retry({
-    min_tail_stop, multi_pass_min_cards, signal_suit, tie_suit, late_diff, max_attempts,
-    updateStatus, log_attempt_failure
-  }) {
-    
-    let attempt = 1;
-    while (attempt <= max_attempts) {
-    
-      // **【v3 新增】** 每 20 次嘗試回報一次狀態，並釋放 UI 執行緒
-      if (attempt % 20 === 0) {
-        updateStatus(`Processing attempt ${attempt} / ${max_attempts}...`);
-        await new Promise(resolve => setTimeout(resolve, 0)); // 關鍵：防止卡死
-      }
-      
-      const deck = build_shuffled_deck();
-      const result = pack_all_sensitive_once(
-        deck, { min_tail_stop, multi_pass_min_cards }
-      );
-      
-      if (!result) {
-        attempt++;
-        continue; // 嘗試失敗，進入下一次
-      }
-      
-      const [rounds, tail] = result;
-
-      const rounds_copy = rounds.map(r => ({ ...r, cards: r.cards.map(c => c.clone()) }));
-      const tail_copy = tail.map(c => c.clone());
-
-      // **【v3 修改】** 傳入 log_attempt_failure 函式
-      if (!apply_shoe_rules(
-        rounds_copy, tail_copy, 
-        { signal_suit, tie_suit, late_diff },
-        log_attempt_failure // 傳入
-      )) {
-        attempt++;
-        continue; // 嘗試失敗，進入下一次
-      }
-      
-      // **【v3 新增】** 成功！
-      updateStatus(`Success on attempt ${attempt}! Finalizing...`);
-      return [rounds_copy, tail_copy, deck];
-    }
-    
-    // **【v3 新增】**
-    updateStatus(`Failed to generate after ${max_attempts} attempts.`);
-    return null; // 達到最大嘗試次數
-  }
-
-  return {
-    // 公開的函式和設定
-    setConfig: (newConfig) => {
-      Object.assign(CONFIG, newConfig);
-    },
-    generate_all_sensitive_shoe_or_retry,
-    // 將輔助函式也導出，供 app.py 翻譯的邏輯使用
-    helpers: {
-      _seq_points,
-      _seq_result,
-      compute_sidx_new,
-      RoundView: (cards, result) => ({ cards, result }), // 模擬
-      HEART_SIGNAL_ENABLED: () => CONFIG.HEART_SIGNAL_ENABLED,
-      SIGNAL_SUIT: () => CONFIG.SIGNAL_SUIT,
-    }
-  };
-})();
-
-// =============================================
-// --- END: waa.py translated logic ---
-// =============================================
-
-
-// =============================================
-// --- START: app.py helper logic ---
-// =============================================
-
-// 這是 INTERNAL_STATE，用來儲存由 waa.py 邏輯生成的 *原始* Card 物件
-// 以便後續導出功能使用
-const INTERNAL_STATE = {
-    rounds: [], // 儲存 Round 物件
-    tail: [],   // 儲存 Card 物件
-    deck: []    // 儲存 Card 物件
-};
-
-// --- app.py: 花色對應 ---
-// **【修正】** 這些變數現在在全域宣告 (下方 script.js 部分)，這裡只提供 app 翻譯邏輯需要的部分
-const SUIT_LETTER_TO_SYMBOL_APP = { "S": "♠", "H": "♥", "D": "♦", "C": "♣" };
-const SUIT_SYMBOL_TO_LETTER_APP = { "♠": "S", "♥": "H", "♦": "D", "♣": "C" };
-
-
-function _suit_letter(val) {
-    if (!val) return "";
-    const s = String(val).trim();
-    if (!s) return "";
-    const upper = s.toUpperCase();
-    if (SUIT_LETTER_TO_SYMBOL_APP[upper]) return upper;
-    if (SUIT_SYMBOL_TO_LETTER_APP[s]) return SUIT_SYMBOL_TO_LETTER_APP[s];
-    if (SUIT_SYMBOL_TO_LETTER_APP[upper]) return SUIT_SYMBOL_TO_LETTER_APP[upper]; // Handle 'h' -> 'H'
-    return upper;
-}
-
-function _normalize_suit_input(val) {
-    if (!val) return null;
-    const letter = _suit_letter(val);
-    return SUIT_LETTER_TO_SYMBOL_APP[letter] || letter;
-}
-
-// --- app.py: 工具函式 ---
-function _suit_counts(rounds, tail) {
-    const all_cards = [...rounds.flatMap(r => r.cards || []), ...(tail || [])];
-    const counts = new Map();
-    for (const card of all_cards) {
-        const suit = _suit_letter(card.suit || null);
-        const rank = card.rank || null;
-        if (suit && rank) {
-            const key = `${suit}_${rank}`;
-            counts.set(key, (counts.get(key) || 0) + 1);
-        }
-    }
-    
-    const suit_totals = new Map();
-    for (const card of all_cards) {
-        const suit = _suit_letter(card.suit || null);
-        if (suit) {
-            suit_totals.set(suit, (suit_totals.get(suit) || 0) + 1);
-        }
-    }
-  // 新增：每種 rank_suit 對應的卡牌陣列
-  const cards_by_rank_suit = {};
-  for (const card of all_cards) {
-    const suit = _suit_letter(card.suit || null);
-    const rank = card.rank || null;
-    if (suit && rank) {
-      const key = `${suit}_${rank}`;
-      if (!cards_by_rank_suit[key]) cards_by_rank_suit[key] = [];
-      cards_by_rank_suit[key].push(card);
-    }
-  }
-  return {
-    by_rank_suit: Object.fromEntries(counts),
-    suit_totals: Object.fromEntries(suit_totals),
-    cards_by_rank_suit,
-  };
-}
-
-// 翻譯 app.py 的 _serialize_rounds
-function _serialize_rounds(rounds) {
-    const out = [];
-    for (const r of rounds) {
-        const seq_cards = r.cards || [];
-        const cards = [];
-        for (const c of seq_cards) {
-            const suit_symbol = c.suit || "";
-            cards.push({
-                label: c.short(),
-                suit: _suit_letter(suit_symbol),
-                suit_symbol: suit_symbol,
-            });
-        }
-
-        let banker_point = 0;
-        let player_point = 0;
-        let player_cards_labels = [];
-        let banker_cards_labels = [];
-        
-        try {
-            if (seq_cards.length >= 4) {
-                const [P1, B1, P2, B2] = seq_cards.slice(0, 4);
-                let player_cards = [P1, P2];
-                let banker_cards = [B1, B2];
-                let p_tot = (P1.point() + P2.point()) % 10;
-                let b_tot = (B1.point() + B2.point()) % 10;
-                let natural = (p_tot === 8 || p_tot === 9 || b_tot === 8 || b_tot === 9);
-                let idx = 4;
-                let p3 = null;
-                if (!natural) {
-                    if (p_tot <= 5 && idx < seq_cards.length) {
-                        p3 = seq_cards[idx]; idx++;
-                        player_cards.push(p3);
-                        p_tot = (p_tot + p3.point()) % 10;
-                    }
-                    
-                    const draw = () => {
-                        if (idx >= seq_cards.length) return false;
-                        const b3 = seq_cards[idx]; idx++;
-                        banker_cards.push(b3);
-                        b_tot = (b_tot + b3.point()) % 10;
-                        return true;
-                    };
-                    
-                    if (p3 === null) {
-                        if (b_tot <= 5) {
-                          draw();
-                        }
-                    } else {
-                        const pt = p3.point();
-                        if (b_tot <= 2) draw();
-                        else if (b_tot === 3 && pt !== 8) draw();
-                        else if (b_tot === 4 && [2, 3, 4, 5, 6, 7].includes(pt)) draw();
-                        else if (b_tot === 5 && [4, 5, 6, 7].includes(pt)) draw();
-                        else if (b_tot === 6 && [6, 7].includes(pt)) draw();
-                    }
-                }
-                banker_point = b_tot;
-                player_point = p_tot;
-                player_cards_labels = player_cards.map(c => c.short());
-                banker_cards_labels = banker_cards.map(c => c.short());
-            } else {
-                 const bp_pp = WAA_Logic.helpers._seq_points(seq_cards) || [null, null];
-                 banker_point = bp_pp[0];
-                 player_point = bp_pp[1];
-            }
-        } catch (e) {
-            console.error("Error serializing round points", e, r);
-            const bp_pp = WAA_Logic.helpers._seq_points(seq_cards) || [null, null];
-            banker_point = bp_pp[0];
-            player_point = bp_pp[1];
-        }
-
-        const rb = (c) => {
-            const col = c.color;
-            if (col === 'R' || col === 'B') return col;
-            const letter = _suit_letter(c.suit || '');
-            return (letter === 'H' || letter === 'D') ? 'R' : 'B';
-        };
-        const color_seq = seq_cards.map(rb).join('');
-
-        out.push({
-            result: r.result || "",
-            cards: cards,
-            player_point: player_point ?? 0,
-            banker_point: banker_point ?? 0,
-            player: player_cards_labels,
-            banker: banker_cards_labels,
-            color_seq: color_seq,
-        });
-    }
+   
     return out;
 }
+/**
+* 根據 9999.txt 的 build_C_segments 邏輯，從剩餘牌組中提取完整的 B 段牌局 (B rounds)
+*/
+function build_B_and_C_segments_from_tail(tail_cards) {
+if (!tail_cards || tail_cards.length < 4) return { b_rounds: [], c_cards: tail_cards };
+const temp_deck = tail_cards.map((c, i) => c.clone(i));
+const sim = new Simulator(temp_deck);
+const b_rounds = [];
+const used_card_idx_in_temp = new Set();
+let i_ptr = 0;
+const Nleft = temp_deck.length;
+while (i_ptr < Nleft) {
+const start_pos = i_ptr;
+const r = sim.simulate_round(start_pos, { no_swap: true });
+if (r) {
+const current_round_cards_temp = r.cards;
+const is_valid = current_round_cards_temp.every(c => !used_card_idx_in_temp.has(c.pos));
+if (is_valid) {
+const original_cards = current_round_cards_temp.map(c => tail_cards[c.pos]);
+const original_round = makeRoundInfo(original_cards.pos, original_cards, r.result, false);
+original_round.segment = 'B';
+b_rounds.push(original_round);
+current_round_cards_temp.forEach(c => used_card_idx_in_temp.add(c.pos));
+i_ptr += current_round_cards_temp.length;
+} else {
+i_ptr++;
+}
+} else {
+i_ptr++;
+}
+}
+const used_original_pos = new Set(b_rounds.flatMap(r => r.cards).map(c => c.pos));
+const c_cards = tail_cards.filter(c => !used_original_pos.has(c.pos));
+return { b_rounds, c_cards };
+}
 
-// 翻譯 app.py 的 _serialize_rounds_with_flags
-function _serialize_rounds_with_flags(rounds, tail) {
-    const ordered = [...rounds].sort((a, b) => a.start_index - b.start_index);
-    const views = ordered.map(r => WAA_Logic.helpers.RoundView(r.cards, r.result));
-    
-    if (tail && tail.length > 0) {
-        const tail_res = WAA_Logic.helpers._seq_result(tail) || '';
-        views.push(WAA_Logic.helpers.RoundView(tail, tail_res));
+
+/**
+ * [CHN] 花色調整
+ *
+ * @param {Array} final_rounds - 所有牌局的陣列 (包含 A/B/C 段)。
+ * @param {string} signal_suit - 要集中的訊號花色 (例如 '♥')。
+ * @param {number} tolerance - 允許留在非S局的訊號牌最大數量 (容錯值)。
+ * @param {Set} locked_ids - 一個包含已被其他規則鎖定、不可交換的卡牌物件的 Set。
+ * @returns {Set} - 返回一個更新後的 locked_ids，包含了本次交換後所有被鎖定的訊號牌。
+ * @throws {Error} - 如果最終無法滿足容錯條件，則拋出錯誤。
+ */
+
+// =====================【替換區塊結束】=====================
+
+function pack_all_sensitive_and_segment(deck) {
+    // 建立模擬器
+    const sim = new Simulator(deck);
+    // 掃描所有敏感局
+    const all_sensitive = scan_all_sensitive_rounds(sim);
+    // 記錄已用過的牌位置
+    const used_pos = new Set();
+    // 儲存 A 段敏感局
+    const a_rounds = [];
+    // 先把所有敏感局加入 A 段
+    for (const r of all_sensitive) {
+        // 如果這局有用過的牌就跳過
+        if (r.cards.some(c => used_pos.has(c.pos))) continue;
+        r.segment = 'A';
+        a_rounds.push(r);
+        r.cards.forEach(c => used_pos.add(c.pos));
     }
-    
-    let s_idx_positions = new Set();
+    // 持續多重洗牌挑選敏感局
+    const MAX_MULTI_PASS_ATTEMPTS = 200;
+    let multi_pass_attempts = 0;
+    while (true) {
+        const remaining = deck.filter(c => !used_pos.has(c.pos));
+        if (remaining.length < CONFIG.MULTI_PASS_MIN_CARDS) break;
+        const cands = multi_pass_candidates_from_cards_simple(remaining);
+        const picked = Array.isArray(cands)
+            ? cands.find(r => Array.isArray(r.cards) && r.cards.length > 0 && !r.cards.some(c => used_pos.has(c.pos)))
+            : cands;
+        // 檢查挑出來的敏感局是否合法
+        if (!picked || !Array.isArray(picked.cards) || picked.cards.length === 0) {
+             multi_pass_attempts++;
+            if (multi_pass_attempts >= MAX_MULTI_PASS_ATTEMPTS) break;
+            continue;
+        }
+        if (picked.cards.some(c => used_pos.has(c.pos))) break;
+        picked.segment = 'A';
+        a_rounds.push(picked);
+        picked.cards.forEach(c => used_pos.add(c.pos));
+    }
+    // 按起始位置排序 A 段
+    a_rounds.sort((a, b) => a.start_index - b.start_index);
+    // 剩下的牌進行 B/C 段分配
+    const tail_cards = deck.filter(c => !used_pos.has(c.pos));
+    const { b_rounds, c_cards } = build_B_and_C_segments_from_tail(tail_cards);
+    // C 段（殘牌）如果有就建立一個 round
+    let c_round = null;
+    if (c_cards.length > 0) {
+        const c_start_index = Math.min(...c_cards.map(c => c.pos)) || 0;
+        c_round = makeRoundInfo(c_start_index, c_cards, '殘牌', false);
+        c_round.segment = 'C';
+    }
+    // 合併所有段落
+    const final_rounds = [...a_rounds, ...b_rounds, ...(c_round ? [c_round] : [])];
+    // 取得所有卡牌
+    const final_card_deck = final_rounds.flatMap(r => r.cards);
+    // 回傳所有段落與卡牌
+    return { a_rounds, b_rounds, c_cards, final_rounds, final_card_deck };
+}
+const _is_tie_result = (result) => {
+if (typeof result !== 'string') return false;
+const val = result.trim();
+return ['和', 'Tie', 'T'].includes(val);
+};
+const compute_sidx_for_segment = (rounds, segment = 'A') => {
+const S = [];
+for (let i = 0; i < rounds.length - 1; i++) {
+if (rounds[i].segment === segment && rounds[i + 1].result === '莊') {
+S.push(i);
+}
+}
+return S;
+};
+// ====================================================================================================
+// =====================【V6 最終正確版 - 統一替換所有規則函式 START】================================
+// ====================================================================================================
+
+// 【V6 正確版 - 和局訊號】
+function enforce_tie_signal_combined(final_rounds, tie_suit) { // 不再需要 deck
+    if (!tie_suit) return new Set();
+
+    const all_cards = final_rounds.flatMap(r => r.cards);
+    const tie_indices = [];
+    for (let idx = 0; idx < final_rounds.length - 1; idx++) {
+        if (final_rounds[idx].segment === 'A' && _is_tie_result(final_rounds[idx + 1].result)) {
+            tie_indices.push(idx);
+        }
+    }
+
+    const locked_ids = new Set();
+    for (const idx of tie_indices) {
+        const round_to_fill = final_rounds[idx];
+        for (const card_to_replace of round_to_fill.cards) {
+            if (card_to_replace.suit === tie_suit) {
+                locked_ids.add(card_to_replace);
+                continue;
+            }
+
+            // 在所有牌中尋找可交換的 donor
+            const donor_card = all_cards.find(card =>
+                card.rank === card_to_replace.rank &&
+                card.suit === tie_suit &&
+                !locked_ids.has(card)
+            );
+
+            if (donor_card) {
+                swap_cards_in_rounds(card_to_replace, donor_card);
+                locked_ids.add(card_to_replace);
+                locked_ids.add(donor_card);
+            } else {
+                throw new Error(`Tie signal enforcement failed: Cannot find same-rank donor for ${card_to_replace.short()}`);
+            }
+        }
+        round_to_fill.cards.forEach(c => locked_ids.add(c));
+    }
+    return locked_ids;
+}
+
+// 【V6 正確版 - apply_combined_rules_internal】
+function apply_combined_rules_internal(final_rounds, { signal_suit, tie_suit, late_diff }, log_attempt_failure) { // 不再需要 deck
+    let locked_ids = new Set();
+
+    // 步驟 1: 處理和局訊號
     try {
-        s_idx_positions = new Set(WAA_Logic.helpers.compute_sidx_new(views));
+        const tie_locked = enforce_tie_signal_combined(final_rounds, tie_suit);
+        locked_ids = new Set([...locked_ids, ...tie_locked]);
     } catch (e) {
-        console.error("compute_sidx_new failed", e);
+        log_attempt_failure(`Tie signal failed: ${e.message}`);
+        throw e;
     }
-    
-    const serialized = _serialize_rounds(ordered);
-    const signal_enabled = WAA_Logic.helpers.HEART_SIGNAL_ENABLED();
-    const signal_suit = WAA_Logic.helpers.SIGNAL_SUIT();
 
-    serialized.forEach((row, idx) => {
-        const is_idx = s_idx_positions.has(idx);
-        row["is_sidx"] = is_idx;
-        if (!is_idx) {
-            row["s_idx_ok"] = false;
-            return;
+    // 步驟 2: 處理S局訊號
+    try {
+        const signal_locked = distribute_signals_evenly(final_rounds, signal_suit, locked_ids);
+        locked_ids = new Set([...locked_ids, ...signal_locked]);
+    } catch (e) {
+        log_attempt_failure(`Even Distribution failed: ${e.message}`);
+        throw e;
+    }
+
+    // 步驟 3: 最終強制驗證 (我們恢復它，確保100%成功)
+    const s_indices_final = compute_sidx_for_segment(final_rounds, 'A');
+    for (const idx of s_indices_final) {
+        const s_round = final_rounds[idx];
+        const has_signal = s_round.cards.some(card => card.suit === signal_suit);
+        if (!has_signal) {
+            const error_msg = `最終驗證失敗：S局 #${idx + 1} 仍然沒有訊號牌！`;
+            log_attempt_failure(error_msg);
+            throw new Error(error_msg);
         }
-        let ok = true;
-        if (signal_enabled && signal_suit) {
-            ok = ordered[idx].cards.some(card => card.suit === signal_suit);
+    }
+    console.log("[驗證成功] 所有S局均已包含訊號牌。");
+
+    // 步驟 4: 後期平衡 (在當前模型下，它們沒有意義，但我們保留空函式以防出錯)
+    late_balance();
+    balance_non_tie_suits();
+
+    return final_rounds;
+}
+
+// =====================【V8 最終完美版 - 替換 distribute_signals_evenly】=====================
+/**
+ * [CHN] 【V8 最終完美版】均勻分配並集中訊號牌
+ *      - 採用「補缺優先」和「均勻化」策略，確保訊號牌被合理地分配到所有S局。
+ */
+function distribute_signals_evenly(final_rounds, signal_suit, locked_ids) {
+    if (!signal_suit) return locked_ids;
+
+    const all_cards = final_rounds.flatMap(r => r.cards);
+    const MAX_ITERATIONS = 1000;
+
+    for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+        const s_indices = new Set(compute_sidx_for_segment(final_rounds, 'A'));
+        if (s_indices.size === 0) break;
+
+        // --- 1. 全局盤點，計算每個S局的「缺乏度」 ---
+        let s_round_stats = [];
+        s_indices.forEach(idx => {
+            const s_round = final_rounds[idx];
+            const signal_count = s_round.cards.filter(c => c.suit === signal_suit).length;
+            const has_receiver_slot = s_round.cards.some(c => c.suit !== signal_suit && !locked_ids.has(c));
+            
+            // 只有當S局還有可被換出的空位時，才將其納入考慮
+            if (has_receiver_slot) {
+                s_round_stats.push({
+                    round_index: idx,
+                    signal_count: signal_count,
+                });
+            }
+        });
+
+        // 按「訊號牌數量」從少到多排序，這樣總是優先處理最缺牌的S局
+        s_round_stats.sort((a, b) => a.signal_count - b.signal_count);
+
+        // --- 2. 尋找並執行一次「最優交換」 ---
+        let swap_done_in_iter = false;
+        
+        // 從最缺牌的S局開始嘗試
+        for (const stat of s_round_stats) {
+            const target_s_round = final_rounds[stat.round_index];
+            const potential_receivers = target_s_round.cards.filter(c => c.suit !== signal_suit && !locked_ids.has(c));
+
+            // 為這個最缺的S局，尋找一個可交換的 donor
+            for (const receiver_card of potential_receivers) {
+                // donor 必須在非S局中
+                const donor_card = all_cards.find(card =>
+                    !s_indices.has(card._round_index) &&
+                    card.rank === receiver_card.rank &&
+                    card.suit === signal_suit &&
+                    !locked_ids.has(card)
+                );
+
+                if (donor_card) {
+                    // 找到了！執行交換
+                    console.log(`[均勻化交換] 將 ${receiver_card.short()} (來自最缺的S局 #${stat.round_index + 1}) 與 ${donor_card.short()} 交換。`);
+                    swap_cards_in_rounds(receiver_card, donor_card);
+                    locked_ids.add(receiver_card);
+                    locked_ids.add(donor_card);
+                    
+                    swap_done_in_iter = true;
+                    break; // 內層循環中斷，去處理下一個最缺的S局
+                }
+            }
+            if (swap_done_in_iter) {
+                break; // 外層循環中斷，每次迭代只做一次最優交換
+            }
         }
-        row["s_idx_ok"] = ok;
+
+        // 如果本輪沒有發生任何交換，說明已經達到最優或資源枯竭
+        if (!swap_done_in_iter) {
+            console.log("[交換結束] 無法再進行任何均勻化交換。");
+            break;
+        }
+    }
+
+    // --- 最終驗證 (可選，但建議保留) ---
+    // 確保所有S局至少有一張訊號牌
+    const s_indices_final = new Set(compute_sidx_for_segment(final_rounds, 'A'));
+    for (const idx of s_indices_final) {
+        const s_round = final_rounds[idx];
+        if (!s_round.cards.some(c => c.suit === signal_suit)) {
+            throw new Error(`交換失敗：即使在均勻化後，S局 #${idx + 1} 仍然沒有訊號牌。`);
+        }
+    }
+
+    return locked_ids;
+}
+// =====================【V8 替換區塊結束】=====================
+
+
+
+// 【V6 正確版 - 後期平衡 (空函式)】
+function late_balance() {
+    // 在當前模型下無意義，保持為空。
+}
+
+// 【V6 正確版 - 非和局花色平衡 (空函式)】
+function balance_non_tie_suits() {
+    // 在當前模型下無意義，保持為空。
+}
+
+// =====================【V6 最終正確版 - 替換總入口函式】=====================
+async function generate_all_sensitive_shoe_or_retry({max_attempts, signal_suit, tie_suit, late_diff, updateStatus, log_attempt_failure}) {
+    let attempt = 1;
+    while (attempt <= max_attempts) {
+        console.log(`--- 開始第 ${attempt} 次嘗試 ---`);
+        if (attempt % 20 === 0) {
+            updateStatus(`Processing attempt ${attempt} / ${max_attempts}...`);
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        try {
+            const initial_deck = build_shuffled_deck();
+            const { a_rounds, b_rounds, c_cards, final_rounds, final_card_deck } = pack_all_sensitive_and_segment(initial_deck);
+
+            if (a_rounds.length === 0) {
+                attempt++;
+                log_attempt_failure("No A segments found.");
+                continue;
+            }
+
+            // 【核心】將本次生成的 final_rounds 存入全域狀態，讓交換函式可以訪問
+INTERNAL_STATE.rounds = final_rounds;
+
+// 【V7 新增】為每張牌預先標記它所在的牌局索引，方便後續查找
+final_rounds.forEach((round, round_index) => {
+    round.cards.forEach(card => {
+        card._round_index = round_index;
     });
+});
 
-    if (tail && tail.length > 0) {
-        const tail_positions = tail.map(c => c.pos).filter(p => typeof p === 'number');
-        let tail_start = tail_positions.length > 0 ? Math.min(...tail_positions) : null;
-        if (tail_start === null) {
-            tail_start = ordered.length > 0 ? (ordered[ordered.length - 1].start_index + ordered[ordered.length - 1].cards.length) : 0;
+            // 呼叫我們新的規則函式 (不再需要傳遞 deck)
+            apply_combined_rules_internal(final_rounds, { signal_suit, tie_suit, late_diff }, log_attempt_failure);
+
+            // --- 準備最終返回的數據 ---
+            // 因為我們直接修改了 final_rounds，所以它本身就是最終結果
+            const final_deck_for_ui = final_rounds.flatMap(r => r.cards);
+            const used_pos_in_final_deck = new Set(final_deck_for_ui.map(c => c.pos));
+            const final_tail_cards = c_cards.filter(c => !used_pos_in_final_deck.has(c)); // 從初始的c_cards過濾
+
+            const rounds_for_ui = final_rounds;
+            const tail_for_ui = final_tail_cards;
+
+            const rounds_copy = rounds_for_ui.map(r => ({ ...r, cards: r.cards.map(c => c.clone()) }));
+            const tail_copy = tail_for_ui.map(c => c.clone());
+
+            updateStatus(`Success on attempt ${attempt}! Finalizing...`);
+            return [rounds_copy, tail_copy, final_deck_for_ui];
+
+        } catch (e) {
+            let zhMsg = e.message;
+            console.error(`第 ${attempt} 次嘗試失敗，原因: ${zhMsg}`);
+            log_attempt_failure(`第 ${attempt} 次嘗試失敗，原因: ${zhMsg}`);
+            attempt++;
+            continue; // 失敗了就重試
         }
-        
-        const tail_round = {
-            start_index: tail_start,
-            cards: tail,
-            result: WAA_Logic.helpers._seq_result(tail) || '',
-            sensitive: true, // 假設尾局是敏感的
-        };
-        
-        const tail_serialized = _serialize_rounds([tail_round])[0];
-        
-        
-    // 新邏輯：如果第一局是莊家，尾局也視為 S_idx 並檢查訊號花色
-    const first_round_result = serialized.length > 0 ? serialized[0].result : null;
-    const signal_enabled = WAA_Logic.helpers.HEART_SIGNAL_ENABLED();
-    const signal_suit = WAA_Logic.helpers.SIGNAL_SUIT();
+    }
+    updateStatus(`Failed to generate after ${max_attempts} attempts.`);
+    return null;
+}
+// =====================【V6 替換區塊結束】=====================
 
-    if (first_round_result === '莊') {
-      tail_serialized["is_sidx"] = true;
-      let ok = true;
-      if (signal_enabled && signal_suit) {
-        ok = tail_round.cards.some(card => card.suit === signal_suit);
-      }
-      tail_serialized["s_idx_ok"] = ok;
-    } else {
-      tail_serialized["is_sidx"] = false;
-      tail_serialized["s_idx_ok"] = false;
+// =====================【V4 替換區塊結束】=====================
+
+return {
+setConfig: (newConfig) => { Object.assign(CONFIG, newConfig); },
+getConfig: () => ({ ...CONFIG }),
+generate_all_sensitive_shoe_or_retry,
+helpers: {
+_seq_points: (cards) => {
+if (!cards || cards.length < 4) return [null, null];
+const temp_deck = cards.map((c, i) => new Card(c.rank, c.suit, i));
+const [P1, B1, P2, B2] = temp_deck.slice(0, 4);
+let p_tot = (P1.point() + P2.point()) % 10;
+let b_tot = (B1.point() + B2.point()) % 10;
+// Full Baccarat point calculation logic assumed complete based on Simulator
+return [b_tot, p_tot];
+},
+_seq_result: (cards) => {
+if (!cards || cards.length < 4) return null;
+const tmp = cards.map((c, i) => new Card(c.rank, c.suit, i));
+const sim = new Simulator(tmp);
+const r = sim.simulate_round(0, { no_swap: true });
+return r ? r.result : null;
+},
+compute_sidx_new: compute_sidx_for_segment,
+RoundView: (cards, result) => ({ cards, result, segment: null }),
+HEART_SIGNAL_ENABLED: () => CONFIG.HEART_SIGNAL_ENABLED,
+SIGNAL_SUIT: () => CONFIG.SIGNAL_SUIT,
+}
+};
+})();
+
+const INTERNAL_STATE = {};
+const SUIT_LETTER_TO_SYMBOL_APP = { "S": "♠", "H": "♥", "D": "♦", "C": "♣" };
+const SUIT_SYMBOL_TO_LETTER_APP = { "♠": "S", "♥": "H", "♦": "D", "♣": "C" };
+function _suit_letter(val) {
+if (!val) return "";
+const s = String(val).trim();
+if (!s) return "";
+const upper = s.toUpperCase();
+if (SUIT_LETTER_TO_SYMBOL_APP[upper]) return upper;
+if (SUIT_SYMBOL_TO_LETTER_APP[s]) return SUIT_SYMBOL_TO_LETTER_APP[s];
+if (SUIT_SYMBOL_TO_LETTER_APP[upper]) return SUIT_SYMBOL_TO_LETTER_APP[upper];
+return upper;
+}
+function _normalize_suit_input(val) {
+if (!val) return null;
+const letter = _suit_letter(val);
+return SUIT_LETTER_TO_SYMBOL_APP[letter] || letter;
+}
+function _suit_counts(rounds, tail) {
+const seenPos = new Set();
+const unique_cards = [];
+const pushCard = (card) => {
+if (!card) return;
+const { pos } = card;
+if (pos !== undefined && pos !== null) {
+if (seenPos.has(pos)) return;
+seenPos.add(pos);
+}
+unique_cards.push(card);
+};
+if (Array.isArray(rounds)) {
+rounds.forEach((round) => {
+(round.cards || []).forEach(pushCard);
+});
+}
+if (Array.isArray(tail)) {
+tail.forEach(pushCard);
+}
+const counts = new Map();
+for (const card of unique_cards) {
+const suit = _suit_letter(card.suit || null);
+const rank = card.rank || null;
+if (suit && rank) {
+const key = `${suit}_${rank}`;
+counts.set(key, (counts.get(key) || 0) + 1);
+}
+}
+const suit_totals = new Map();
+for (const card of unique_cards) {
+const suit = _suit_letter(card.suit || null);
+if (suit) { suit_totals.set(suit, (suit_totals.get(suit) || 0) + 1); }
+}
+const cards_by_rank_suit = {};
+for (const card of unique_cards) {
+const suit = _suit_letter(card.suit || null);
+const rank = card.rank || null;
+if (suit && rank) {
+const key = `${suit}_${rank}`;
+if (!cards_by_rank_suit[key]) cards_by_rank_suit[key] = [];
+cards_by_rank_suit[key].push(card);
+}
+}
+return {
+by_rank_suit: Object.fromEntries(counts),
+suit_totals: Object.fromEntries(suit_totals),
+cards_by_rank_suit,
+};
+}
+function _serialize_rounds(rounds) {
+const out = [];
+for (const r of rounds) {
+const seq_cards = r.cards || [];
+const cards = [];
+for (const c of seq_cards) {
+const suit_symbol = c.suit || "";
+cards.push({ label: c.short(), suit: _suit_letter(suit_symbol), suit_symbol: suit_symbol });
+}
+let banker_point = 0;
+let player_point = 0;
+let player_cards_labels = [];
+let banker_cards_labels = [];
+try {
+if (seq_cards.length >= 4) {
+const sim = new Simulator(seq_cards.map((c,i) => c.clone(i)));
+const sim_r = sim.simulate_round(0, { no_swap: true });
+if (sim_r) { 
+    // Re-calculate points (copied from source wwa.txt logic [7-10])
+    const [P1, B1, P2, B2] = seq_cards.slice(0, 4);
+    let player_cards = [P1, P2];
+    let banker_cards = [B1, B2];
+    let p_tot = (P1.point() + P2.point()) % 10;
+    let b_tot = (B1.point() + B2.point()) % 10;
+    let natural = (p_tot === 8 || p_tot === 9 || b_tot === 8 || b_tot === 9);
+    let idx = 4;
+    let p3 = null;
+    if (!natural) {
+        if (p_tot <= 5 && idx < seq_cards.length) { p3 = seq_cards[idx]; idx++; player_cards.push(p3); p_tot = (p_tot + p3.point()) % 10; }
+        const draw = () => { if (idx >= seq_cards.length) return false; const b3 = seq_cards[idx]; idx++; banker_cards.push(b3); b_tot = (b_tot + b3.point()) % 10; return true; };
+        if (p3 === null) { if (b_tot <= 5) { draw(); } } 
+        else {
+            const pt = p3.point();
+            if (b_tot <= 2) draw();
+            else if (b_tot === 3 && pt !== 8) draw();
+            else if (b_tot === 4 && [1-6].includes(pt)) draw();
+            else if (b_tot === 5 && [3-6].includes(pt)) draw();
+            else if (b_tot === 6 && [5, 6].includes(pt)) draw();
+        }
     }
-    tail_serialized["is_tail"] = true;
-    serialized.push(tail_serialized);
-    }
-    
-    return [serialized, ordered];
+    banker_point = b_tot;
+    player_point = p_tot;
+    player_cards_labels = player_cards.map(c => c.short());
+    banker_cards_labels = banker_cards.map(c => c.short());
+} else {
+const bp_pp = WAA_Logic.helpers._seq_points(seq_cards) || [null, null];
+banker_point = bp_pp;
+player_point = bp_pp[11];
+}
+} else {
+const bp_pp = WAA_Logic.helpers._seq_points(seq_cards) || [null, null];
+banker_point = bp_pp;
+player_point = bp_pp[11];
+}
+} catch (e) {
+console.error("Error serializing round points", e, r);
+const bp_pp = WAA_Logic.helpers._seq_points(seq_cards) || [null, null];
+banker_point = bp_pp;
+player_point = bp_pp[11];
+}
+const rb = (c) => {
+const col = c.color;
+if (col === 'R' || col === 'B') return col;
+const letter = _suit_letter(c.suit || '');
+return (letter === 'H' || letter === 'D') ? 'R' : 'B';
+};
+const color_seq = seq_cards.map(rb).join('');
+out.push({
+result: r.result || "",
+cards: cards,
+player_point: player_point ?? 0,
+banker_point: banker_point ?? 0,
+player: player_cards_labels,
+banker: banker_cards_labels,
+color_seq: color_seq,
+});
+}
+return out;
+}
+function _serialize_rounds_with_flags(rounds, tail) {
+const ordered = [...rounds].sort((a, b) => a.start_index - b.start_index);
+const all_rounds_views = ordered.map(r => {
+  const view = WAA_Logic.helpers.RoundView(r.cards, r.result);
+  view.segment = r.segment || null;
+  view.sensitive = Boolean(r.sensitive);
+  return view;
+});
+
+let s_idx_positions = new Set();
+try {
+s_idx_positions = new Set(WAA_Logic.helpers.compute_sidx_new(all_rounds_views));
+} catch (e) { console.error("compute_sidx_new failed", e); }
+const serialized = _serialize_rounds(ordered);
+const signal_enabled = WAA_Logic.helpers.HEART_SIGNAL_ENABLED();
+const signal_suit = WAA_Logic.helpers.SIGNAL_SUIT();
+serialized.forEach((row, idx) => {
+const is_idx = s_idx_positions.has(idx);
+row["is_sidx"] = is_idx;
+row["segment_label"] = ordered[idx].segment || ''; // III-A: 新增段位標籤
+if (ordered[idx].segment !== 'A') { row["s_idx_ok"] = false; return; }
+if (!is_idx) { row["s_idx_ok"] = false; return; }
+let ok = true;
+if (signal_enabled && signal_suit) { ok = ordered[idx].cards.some(card => card.suit === signal_suit); }
+row["s_idx_ok"] = ok;
+});
+return [serialized, ordered];
+}
+const STATE = {};
+STATE.edit = { mode: 'none', first: null, target: null, armed: false };
+
+// =====================【請用這個新版本替換舊的 performCardSwap】=====================
+/**
+ * [CHN] 執行手動卡牌交換，並立即更新統計數據
+ */
+function performCardSwap(a, b) {
+  if (!a || !b) return;
+
+  // 確保操作的是 INTERNAL_STATE.rounds 中的真實卡牌物件
+  const A = INTERNAL_STATE.rounds?.[a.r]?.cards?.[a.c];
+  const B = INTERNAL_STATE.rounds?.[b.r]?.cards?.[b.c];
+  
+  // 如果任何一張牌不存在，則中止操作
+  if (A === undefined || B === undefined) {
+    console.error("卡牌交換失敗：找不到指定的卡牌物件。");
+    return;
+  }
+  
+  // 執行交換：交換兩張牌在陣列中的位置
+  [INTERNAL_STATE.rounds[a.r].cards[a.c], INTERNAL_STATE.rounds[b.r].cards[b.c]] = [B, A];
+
+  // 【新增的關鍵步驟】
+  // 1. 基於更新後的 INTERNAL_STATE，重新計算所有統計數據
+  console.log("卡牌交換完成，正在重新計算統計數據...");
+  const updated_suit_counts = _suit_counts(INTERNAL_STATE.rounds, INTERNAL_STATE.tail);
+  
+  // 2. 呼叫渲染函式，用新的統計數據刷新右上角的表格
+  renderSuits(updated_suit_counts);
+  console.log("右上角統計表格已更新。");
+
+}
+// =====================【替換區塊結束】=====================
+
+
+function performRoundSwap(i, j) {
+  if (i === j) return;
+  // 【重要】確保操作的是 INTERNAL_STATE.rounds
+  const tmp = INTERNAL_STATE.rounds[i];
+  INTERNAL_STATE.rounds[i] = INTERNAL_STATE.rounds[j];
+  INTERNAL_STATE.rounds[j] = tmp;
 }
 
-const STATE = {
-  rounds: [], // 這裡將儲存 *序列化後* 的 rounds (供 UI 使用)
-  suitCounts: {},
-  previewCards: [],
-  cutSummary: null,
-};
-
-const SUIT_SYMBOL_TO_LETTER = {
-  '\u2660': 'S',
-  '\u2665': 'H',
-  '\u2666': 'D',
-  '\u2663': 'C',
-};
-
-const SIGNAL_SUIT_COLOR = {
-  H: '#ff7a90',
-  S: '#69c0ff',
-  D: '#ffb74d',
-  C: '#73d13d',
-};
-
-const SUIT_DISPLAY_NAME = {
-  S: '♠',
-  H: '♥',
-  D: '♦',
-  C: '♣',
-};
-
+const SUIT_SYMBOL_TO_LETTER = {};
+const SIGNAL_SUIT_COLOR = {};
+const SUIT_DISPLAY_NAME = {};
 const $ = (id) => document.getElementById(id);
-
 function toast(message) {
-  const node = $('toast');
-  if (!node) return;
-  node.textContent = message;
-  node.style.display = 'block';
-  setTimeout(() => {
-    node.style.display = 'none';
-  }, 2200);
+const node = $('toast');
+if (!node) return;
+node.textContent = message;
+node.style.display = 'block';
+setTimeout(() => { node.style.display = 'none'; }, 2200);
 }
-
-
-function csvDownloadHref(name) {
-  // return `${API_BASE}/api/export/${name}`;
-  return `javascript:void(0);`; // 不再使用
-}
-
+function csvDownloadHref(name) { return `javascript:void(0);`; }
+// [CHN] 【AAA.JS 版本】從卡牌標籤中提取花色字母
 function suitLetterFromLabel(label) {
   if (!label) return '';
   const value = String(label).trim();
   if (!value) return '';
   const symbol = value.slice(-1);
-  if (SUIT_SYMBOL_TO_LETTER[symbol]) return SUIT_SYMBOL_TO_LETTER[symbol];
-  const upper = symbol.toUpperCase();
-  // **【修正】** 這裡的 SUIT_SYMBOL_TO_LETTER 來自原始 script.js 的定義，
-  // 但 app.py 的 _suit_letter 邏輯更完整，我們改用它的邏輯
+  // 優先使用 SUIT_SYMBOL_TO_LETTER_APP 進行轉換
   if (SUIT_SYMBOL_TO_LETTER_APP[symbol]) return SUIT_SYMBOL_TO_LETTER_APP[symbol];
-  if (SUIT_LETTER_TO_SYMBOL_APP[upper]) return upper; // 'H' -> 'H'
-  if (SUIT_SYMBOL_TO_LETTER_APP[upper]) return SUIT_SYMBOL_TO_LETTER_APP[upper]; // 'h' -> 'H'
+  const upper = symbol.toUpperCase();
+  if (SUIT_LETTER_TO_SYMBOL_APP[upper]) return upper;
   return upper;
 }
 
+// [CHN] 【AAA.JS 版本】從卡牌物件中獲取花色字母
 function cardSuitFromCard(card) {
   if (!card) return '';
   if (typeof card === 'object') {
     if (card.suit) return card.suit;
-    if (card.suit_symbol) return suitLetterFromLabel(card.suit_symbol);
+    if (card.suit_symbol) return _suit_letter(card.suit_symbol);
     if (card.label) return suitLetterFromLabel(card.label);
   }
   return suitLetterFromLabel(card);
 }
 
+// [CHN] 【AAA.JS 版本】【關鍵修正】從卡牌物件中獲取牌面標籤
 function cardLabel(card) {
   if (!card) return '';
   if (typeof card === 'object') {
+    // 這是最重要的邏輯，它確保能讀到序列化後物件的 label 屬性
     if (card.label) return card.label;
     if (card.short) return typeof card.short === 'function' ? card.short() : card.short;
   }
   return String(card);
 }
 
+// [CHN] 【AAA.JS 版本】從標籤中提取點數
 function rankFromLabel(label) {
   if (!label) return '';
   const text = String(label).trim();
   if (!text) return '';
-  const cleaned = text.replace(/[\u2660\u2665\u2666\u2663shdc]/gi, '');
+  const cleaned = text.replace(/[\u2660\u2665\u2666\u2663SHDC]/gi, '');
   return cleaned.toUpperCase();
 }
 
+// [CHN] 【AAA.JS 版本】從標籤中獲取用於預覽網格的數值
 function gridValueFromLabel(label) {
   const rank = rankFromLabel(label);
   if (!rank) return '';
   if (rank === 'A') return '1';
-  if (rank === 'T' || rank === '10' || rank === 'J' || rank === 'Q' || rank === 'K') return '0';
-  const num = Number.parseInt(rank, 10);
-  if (!Number.isNaN(num)) return String(num % 10);
+  if (['10', 'J', 'Q', 'K'].includes(rank)) return '0';
+  const num = parseInt(rank, 10);
+  if (!isNaN(num) && num >= 2 && num <= 9) return String(num);
   return rank;
 }
-
 
 function renderStatsTable(suitCounts) {
   const container = $('suits');
@@ -1440,11 +1087,7 @@ function renderStatsTable(suitCounts) {
   html += '</tbody></table>';
   container.innerHTML = html;
 }
-
-function renderSuits(counts) {
-  renderStatsTable(counts);
-}
-
+function renderSuits(counts) { renderStatsTable(counts); }
 function renderCutSummary(summary) {
   const container = $('cutSummary');
   if (!container) return;
@@ -1459,9 +1102,8 @@ function renderCutSummary(summary) {
     <div class="small">\u5e73\u5747\u6d88\u8017\u5c40\u6578\uff1a<span class="mono">${roundValue}</span></div>
   `;
 }
-
-function ensureRoundsHeader() {
-  const headers = ['局號', '1', '2', '3', '4', '5', '6', '結果', '訊號', '\u9592\u5bb6\u724c', '\u838a\u5bb6\u724c', '閒家', '莊家', '卡牌'];
+function ensureRoundsHeader() { // III-B: 新增段位欄位
+const headers = ['局號', '段位', '1', '2', '3', '4', '5', '6', '結果', '訊號', '\u9592\u5bb6\u724c', '\u838a\u5bb6\u724c', '閒家', '莊家', '卡牌'];
   $('thead').innerHTML = `<tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr>`;
 }
 
@@ -1496,28 +1138,59 @@ function renderRounds(rounds) {
               ? 'win-tie'
               : '';
       const isTie = tieSet.has(result);
+const tieLetter = ($('tieSuit') && $('tieSuit').value) || '';
+const nextRes = rounds[index + 1]?.result || rounds[index + 1]?.winner || '';
+const isTieSignalRound = ((round.segment_label ?? round.segment) === 'A') && tieSet.has(nextRes);
+
+
       const cardCells = [];
       for (let i = 0; i < 6; i += 1) {
-        const card = cards[i];
-        const label = cardLabel(card);
-        const suit = cardSuitFromCard(card);
-        let classes = 'mono';
-        let inline = '';
-        let coloredLabel = label;
-        const suitSym = suit ? (SUIT_SYMBOL[suit] || '') : '';
-        // 若是訊號花色，數字與花色都變色
-        if (signal && !isTie && suit === signal && suitSym && label && label.endsWith(suitSym)) {
-          classes += ` signal-card signal-card-${signal}`;
-          const color = SIGNAL_SUIT_COLOR[signal];
-          if (color) inline = ` style="color:${color}"`;
-          // 整個label都染色
-          coloredLabel = `<span style="color:${color}">${label}</span>`;
-        } else if (suit && SUIT_COLOR[suit] && suitSym && label && label.endsWith(suitSym)) {
-          // 只有花色符號變色，數字維持白色
-          const numPart = label.slice(0, label.length - suitSym.length);
-          coloredLabel = `${numPart}<span style="color:${SUIT_COLOR[suit]}">${suitSym}</span>`;
-        }
-        cardCells.push(`<td class="${classes}"${inline}>${coloredLabel}</td>`);
+  const card = cards[i];
+  // 保底：若 card 為空或無 label/short，仍回傳可見文字
+  const raw = cardLabel(card) || (card && card.short ? (typeof card.short === 'function' ? card.short() : card.short) : '');
+  const label = String(raw || '—'); // 永不為空
+  const suit = cardSuitFromCard(card);
+  let classes = 'mono';
+  let inline = '';
+  let coloredLabel = label;
+  const suitSym = suit ? (SUIT_SYMBOL[suit] || '') : '';
+  if (isTieSignalRound && tieLetter && suit === tieLetter && suitSym && label && label.endsWith(suitSym)) {
+  classes += ` signal-card signal-card-${tieLetter}`;
+  const color = SUIT_COLOR[tieLetter];
+  if (color) inline = ` style="color:${color}"`;
+  coloredLabel = `<span style="color:${color}">${label}</span>`;
+  } else if (signal && suit === signal && suitSym && label && label.endsWith(suitSym)) {
+  classes += ` signal-card signal-card-${signal}`;
+  const color = SIGNAL_SUIT_COLOR[signal];
+  if (color) inline = ` style="color:${color}"`;
+  coloredLabel = `<span style="color:${color}">${label}</span>`;
+} else if (suit && SUIT_COLOR[suit] && suitSym && label && label.endsWith(suitSym)) {
+  const numPart = label.slice(0, label.length - suitSym.length);
+  coloredLabel = `${numPart}<span style="color:${SUIT_COLOR[suit]}">${suitSym}</span>`;
+}
+
+
+  // 帶上資料座標，供點兩格交換使用
+const isFirst = STATE.edit && STATE.edit.first &&
+              STATE.edit.first.r === index && STATE.edit.first.c === i;
+const isSecond = STATE.edit && STATE.edit.second &&
+               STATE.edit.second.r === index && STATE.edit.second.c === i;
+
+if (isFirst || isSecond) {
+  const outlineColor = isFirst ? '#ffd666' : '#69c0ff'; // 第一張用黃色，第二張用藍色
+  const styleToAdd = `outline: 2px solid ${outlineColor}; background: rgba(255, 214, 102, 0.12);`;
+  
+  if (inline.includes('style=')) {
+    inline = inline.replace(/"$/, `; ${styleToAdd}"`);
+  } else {
+    inline = ` style="${styleToAdd}"`;
+  }
+}
+
+cardCells.push(
+  `<td class="${classes} card-cell" data-r="${index}" data-c="${i}"${inline}>${coloredLabel}</td>`
+);
+
       }
       const playerCards = (round.player || round.player_cards || []).join('/') || '';
       const bankerCards = (round.banker || round.banker_cards || []).join('/') || '';
@@ -1536,24 +1209,61 @@ function renderRounds(rounds) {
       const sIdxOk = Boolean(round.s_idx_ok);
       // S_idx 欄顯示訊號花色符號，顏色隨 signal 變
       let sIdxText = '';
-      let sIdxClass = '';
-      if (isSIdx) {
-        if (sIdxOk) {
-          const sym = SUIT_SYMBOL[signal] || '♥';
-          const color = SUIT_COLOR[signal] || '#ff7a90';
-          sIdxText = `<span style="color:${color};font-weight:700">${sym}</span>`;
-          sIdxClass = 'sidx-ok';
-        } else {
-          sIdxText = '&#10006;';
-          sIdxClass = 'sidx-bad';
-        }
-      }
+let sIdxClass = '';
+if (isTieSignalRound) {
+  const sym = SUIT_SYMBOL[tieLetter] || '♣';
+  const color = SUIT_COLOR[tieLetter] || '#73d13d';
+  sIdxText = `<span style="color:${color};font-weight:700">${sym}</span>`;
+  sIdxClass = 'sidx-ok';
+} else if (isSIdx) {
+    // 這是 S 局
+    if (sIdxOk) {
+        // S 局，且有訊號牌 -> 顯示 ♥
+        const sym = SUIT_SYMBOL[signal] || '♥';
+        const color = SUIT_COLOR[signal] || '#ff7a90';
+        sIdxText = `<span style="color:${color};font-weight:700">${sym}</span>`;
+        sIdxClass = 'sidx-ok';
+    } else {
+        // S 局，但沒有訊號牌 -> 顯示 ✗
+        sIdxText = '&#10006;';
+        sIdxClass = 'sidx-bad';
+    }
+} else {
+    // 這不是 S 局
+    // 檢查這個非S局裡是否意外包含了訊號牌
+    const hasStraySignal = cards.some(card => card && card.suit === signal);
+    if (hasStraySignal) {
+        // 如果有，也顯示一個叉，表示這是一個「污染」
+        sIdxText = '&#10006;';
+        sIdxClass = 'sidx-bad';
+    }
+    // 如果沒有，就保持空白
+}
+
+
       const indexLabel = round.is_tail ? '\u5c3e\u5c40' : index + 1;
-      const rowClass = round.is_tail ? 'tail-row' : '';
+      // 【新的高亮邏輯 for 牌局】
+let rowClass = round.is_tail ? 'tail-row' : '';
+
+if (STATE.edit && STATE.edit.mode === 'round') {
+  const isFirst = STATE.edit.first && STATE.edit.first.r === index;
+  const isSecond = STATE.edit.second && STATE.edit.second.r === index;
+
+  if (isFirst) {
+    rowClass += ' highlight-first'; // 添加高亮 class
+  }
+  if (isSecond) {
+    rowClass += ' highlight-second'; // 添加高亮 class
+  }
+}
+
+      const segmentLabel = round.segment_label ?? round.segment ?? '';
       return `
-        <tr class="${rowClass}">
-          <td>${indexLabel}</td>
-          ${cardCells.join('')}
+        <tr class="${rowClass} round-row" data-r="${index}">
+  <td>${indexLabel}</td>
+  <td class="mono segment-cell">${segmentLabel}</td>
+  ${cardCells.join('')}
+
           <td class="${winnerClass}">${result}</td>
           <td class="mono ${sIdxClass}">${sIdxText}</td>
           <td class="mono">${playerCards}</td>
@@ -1566,550 +1276,427 @@ function renderRounds(rounds) {
     })
     .join('');
   tbody.innerHTML = rowsHtml;
-}
 
-// 這個函式在 _serialize_rounds_with_flags 中已經排序過了
-// 但前端還是保留，以防萬一
-function sortedRoundsByStartIndex(rounds) {
-  if (!Array.isArray(rounds)) return [];
-  // 假設 rounds 已經是序列化後的物件，它沒有 start_index
-  // 但 app.py 的 _serialize_rounds_with_flags 確保了順序
-  return rounds;
 }
-
-function flattenRoundColorSequence(rounds) {
-  // const sorted = sortedRoundsByStartIndex(rounds); // 不再需要
-  const sorted = rounds;
-  if (!sorted.length) return '';
-  return sorted
-    .map((round) => {
-      const seq = round?.color_seq ?? round?.colors ?? '';
-      if (Array.isArray(seq)) return seq.join('');
-      if (typeof seq === 'string') return seq.replace(/\s+/g, '');
-      return '';
-    })
-    .join('');
-}
-
+function sortedRoundsByStartIndex(rounds) { /* stub */ }
+function flattenRoundColorSequence(rounds) { /* stub */ }
 function buildDeckGrid(cards, signal, rounds = STATE.rounds) {
-  const columns = 16;
-  const rows = 26;
-  const grid = [];
-  const colorSequence = Array.isArray(rounds) && rounds.length ? flattenRoundColorSequence(rounds) : '';
-  for (let r = 0; r < rows; r += 1) {
-    const row = [];
-    for (let c = 0; c < columns; c += 1) {
-      const idx = r * columns + c;
-      const raw = idx < cards.length ? cards[idx] : '';
-      const originalLabel = cardLabel(raw);
-      if (!originalLabel) {
-        row.push({ label: '', className: '', title: '' });
-        continue;
-      }
-      const displayLabel = gridValueFromLabel(originalLabel);
-      const suit = suitLetterFromLabel(originalLabel);
-      const suitDisplay = suit ? SUIT_DISPLAY_NAME[suit] || suit : '';
-      const isSignal = signal && suit === signal;
-      const colorChar = colorSequence.charAt(idx).toUpperCase();
-      const classes = [];
-      if (colorChar === 'R') classes.push('card-red');
-      else if (colorChar === 'B') classes.push('card-blue');
-      if (isSignal) classes.push('signal-match');
-      const className = classes.join(' ');
-      row.push({
-        label: displayLabel,
-        className,
-        title: suitDisplay ? `${originalLabel} (${suitDisplay})` : originalLabel,
-      });
+    if (!Array.isArray(cards) || cards.length === 0) return [];
+    const signalLetter = _suit_letter(signal);
+    const segmentByIndex = new Map();
+    if (Array.isArray(rounds)) {
+        let cursor = 0;
+        rounds.forEach((round) => {
+            if (!round || !Array.isArray(round.cards)) return;
+            const seg = round.segment_label || round.segment || '';
+            const len = round.cards.length;
+            for (let i = 0; i < len; i++) {
+                segmentByIndex.set(cursor + i, seg);
+            }
+            cursor += len;
+        });
     }
-    grid.push(row);
-  }
-  return grid;
+    return (cards || []).map((card, idx) => {
+        const label = cardLabel(card);
+        const suit = suitLetterFromLabel(label);
+        const numeric = gridValueFromLabel(label);
+        const classes = ['cell'];
+        if (signalLetter && suit === signalLetter) {
+            classes.push('signal-match');
+        }
+        let colorCode = card && typeof card === 'object' ? card.color : null;
+        if (!colorCode) {
+            colorCode = (suit === 'H' || suit === 'D') ? 'R' : (suit ? 'B' : null);
+        }
+        if (colorCode === 'R') {
+            classes.push('card-red');
+        } else if (colorCode === 'B') {
+            classes.push('card-blue');
+        }
+        const display = (numeric === '0' ? '0' : numeric) || '';
+        const seg = segmentByIndex.get(idx);
+        if (seg === 'C') {
+            classes.push('segment-c');
+        } else if (seg === 'B') {
+            classes.push('segment-b');
+        } else if (seg === 'A') {
+            classes.push('segment-a');
+        }
+        return { value: display, className: classes.join(' ') };
+    });
 }
-
 function renderPreview(cards) {
-  const container = $('gridPreview');
-  if (!container) return;
-  if (!cards || !cards.length) {
-    container.innerHTML = '<div class="small">\u5c1a\u7121\u724c\u9774\u8cc7\u6599</div>';
-    return;
-  }
-  const signal = $('signalSuit').value;
-  const grid = buildDeckGrid(cards, signal, STATE.rounds);
-  container.innerHTML = grid
-    .map((row) =>
-      row
-        .map((cell) => {
-          const title = cell.title ? ` title="${cell.title}"` : '';
-          return `<div class="cell ${cell.className}"${title}>${cell.label}</div>`;
-        })
-        .join(''),
-    )
-    .join('');
+    const container = $('gridPreview');
+    if (!container) return;
+    if (!Array.isArray(cards) || cards.length === 0) {
+        container.innerHTML = '<div class="small">尚無資料</div>';
+        return;
+    }
+    const signalSelect = $('signalSuit');
+    const signalValue = signalSelect ? signalSelect.value : null;
+    const gridData = buildDeckGrid(cards, signalValue, STATE.rounds);
+    container.innerHTML = gridData.map(cell => `<div class="${cell.className}">${cell.value ?? ''}</div>`).join('');
 }
-
 function openPreviewWindow(immediatePrint = false) {
-  if (!STATE.previewCards.length) {
-    toast('\u5c1a\u672a\u7522\u751f\u724c\u9774');
-    return;
-  }
-  const signal = $('signalSuit').value;
-  const grid = buildDeckGrid(STATE.previewCards, signal, STATE.rounds);
-  const gridHtml = grid
-    .map((row) =>
-      row
-        .map((cell) => {
-          const title = cell.title ? ` title="${cell.title}"` : '';
-          return `<div class="cell ${cell.className}"${title}>${cell.label}</div>`;
-        })
-        .join(''),
-    )
-    .join('');
-const html = `<!doctype html>
+    if (!STATE.previewCards || STATE.previewCards.length === 0) {
+        toast('Please generate a shoe before previewing');
+        return;
+    }
+    const signalSelect = $('signalSuit');
+    const signalValue = signalSelect ? signalSelect.value : null;
+    const gridData = buildDeckGrid(STATE.previewCards, signalValue, STATE.rounds);
+    if (!Array.isArray(gridData) || gridData.length === 0) {
+        toast('No preview data available');
+        return;
+    }
+    const gridHtml = gridData.map((cell) => `<div class="${cell.className}">${cell.value ?? ''}</div>`).join('');
+    const html = `<!doctype html>
 <html lang="zh-Hant">
   <head>
     <meta charset="utf-8" />
+    <title>Shoe Preview</title>
     <style>
-      /* === 基本版面設定（整體背景、字體大小）=== */
       body{margin:0;padding:24px;background:#0f111a;color:#eef3ff;font:14px/1.4 "Noto Sans TC",sans-serif;}
-      body,table.deck td{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-      /* === 操作按鈕列（可視需要保留或移除）=== */
-      .actions{margin-bottom:12px;display:flex;gap:8px;}
-      .actions button{padding:6px 12px;border:1px solid #24324a;border-radius:6px;background:#1d4ed8;color:#f3f8ff;cursor:pointer;}
-      /* === 表格外觀（外框、間距、字體大小）=== */
-      .deck-wrapper{ /* 表格外框容器 */
-        display:block; /* 讓外框可水平置中 */
-        margin:0 auto; /* 水平置中 */
-        border:1px solid #394968; /* 外框顏色 */
-        background:#121b2c; /* 外框背景色 */
-        padding:8px; /* 外框內距 */
-        border-radius:8px; /* 圓角 */
-        width:1000px; /* 表格寬度（可調整） */
-        max-width:100vw;
-      }
-      table.deck{border-collapse:collapse;width:100%;} /* 讓表格寬度填滿外框 */
-      table.deck td{ /* 單一格子 */
-        width:36px; /* 格子寬度（可調整） */
-        height:36px; /* 格子高度（可調整） */
-        text-align:center; /* 文字置中 */
-        font-weight:600; /* 字體加粗 */
-        border:1px solid #2a3650; /* 格子邊框顏色 */
-        color:#d8e6ff; /* 字體顏色（可調整） */
-        font-size:24px; /* 字體大小（可調整） */
-        font-family: auto; /* 字體（可調整） */
-      }
-      /* === 顏色設定（可自行調整）=== */
-      table.deck td.card-red{background: #2d1b22;color: #ffd6dc;}
-      table.deck td.card-blue{background: #162437;color: #d7e9ff;}
-      table.deck td.signal-match{box-shadow:inset 0 0 0 2px #ffd591;}
-      /* === 列印模式專用樣式 === */
+      body,.cell{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      .toolbar{display:flex;gap:12px;margin-bottom:16px;}
+      .toolbar button{padding:8px 16px;border:1px solid #24324a;border-radius:6px;background:#1d4ed8;color:#f3f8ff;cursor:pointer;}
+      .toolbar button.secondary{background: #24324a;}
+      .grid-preview{display:grid;grid-template-columns:repeat(16,1fr);gap:0;border:1px solid #ffffff12;border-radius:12px;overflow:hidden;}
+      .cell{display:flex;align-items:center;justify-content:center;height:40px;font-size:22px;font-weight:600;border:1px solid #1d2840;}
+      .cell.card-red{background: #2d1b22;color: #ffd6dc;}
+      .cell.card-blue{background: #162437;color #d7e9ff;}
+      .cell.signal-match{box-shadow:inset 0 0 0 2px #ffd591;}
       @media print{
-        body{padding:8px;background:#fff;color:#000;} /* 列印時頁面背景與字色 */
-        .actions{display:none !important;} /* 列印時隱藏操作按鈕 */
-        title, h1, h2, h3, .title, .subtitle, .deck-title {display:none !important;} /* 列印時隱藏標題 */
-        .deck-wrapper{
-          border:2px solid #0e0e0eff; /* 列印時外框顏色 */
-          background:#fff; /* 列印時外框背景色 */
-          padding:0;
-          border-radius:0;
-          width:1200px !important; /* 列印時表格寬度（可調整） */
-          max-width:100vw;
-          margin:0 auto;
-        }
-        table.deck{width:100%;} /* 列印時表格寬度填滿外框 */
-        table.deck td{
-          border:1px solid #000000; /* 列印時格子邊框顏色 */
-          color:#000000; /* 列印時字體顏色 */
-          font-size:26x; /* 列印時字體大小（可調整） */
-          font-family:font-family: auto;
-          padding:0px;
-          width:36px; /* 列印時格子寬度（可調整） */
-          height:36px; /* 列印時格子高度（可調整） */
-        }
-        table.deck td.card-red{background: #f5c5c5ff !important;color:#000000 !important;} /* 紅色格子背景與字色 */
-        table.deck td.card-blue{background: #c2bebeff !important;color:#000000 !important;} /* 藍色格子背景與字色 */
-        table.deck td.signal-match{box-shadow:inset 0 0 0 2px #c20000ff !important; color: #c20000ff !important;} /* 黃色框線，並設定字體顏色 */
+        body{padding:12px;background: #000;color: #000;}
+        .toolbar{display:none;}
+        .grid-preview{width:1200px;max-width:100%;margin:0 auto;border-color: #000;}
+        .cell{border:1px solid #000;color: #000;background: #000;}
+        .cell.card-red{background: #f5c5c5;}
+        .cell.card-blue{background: #eff0f7ff;}
+        .cell.signal-match{box-shadow:inset 0 0 0 2px #f80404ff;}
       }
     </style>
   </head>
   <body>
-    <div class="actions">
-      <button onclick="window.print()">\u5217\u5370</button>
-      <button onclick="window.close()">\u95dc\u9589</button>
+    <div class="toolbar">
+      <button onclick="window.print()">Print</button>
+      <button class="secondary" onclick="window.close()">Close</button>
     </div>
-    <div class="deck-wrapper">
-      <table class="deck">
-        <tbody>
-          ${grid
-            .map(
-              (row) =>
-                `<tr>${row
-                  .map((cell) => `<td class="${cell.className}">${cell.label}</td>`)
-                  .join('')}</tr>`,
-            )
-            .join('')}
-        </tbody>
-      </table>
-    </div>
+    <div class="grid-preview">${gridHtml}</div>
   </body>
 </html>`;
-
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, '_blank');
-  if (!win) {
-    toast('\u700f\u89bd\u5668\u963b\u64cb\u5f48\u51fa\u8996\u7a97\uff0c\u8acb\u5141\u8a31\u5f8c\u518d\u8a66');
-    URL.revokeObjectURL(url);
-    return;
-  }
-  win.focus();
-  win.onload = () => {
-    if (immediatePrint) {
-      try {
-        win.print();
-      } catch (err) {
-        console.warn('preview print failed', err);
-      }
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (!win) {
+        URL.revokeObjectURL(url);
+        toast('Popup blocked. Please allow pop-ups and try again.');
+        return;
     }
-  };
-  const revokeLater = () => {
-    try {
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      // ignore
-    }
-  };
-  win.addEventListener('beforeunload', revokeLater);
-  setTimeout(revokeLater, 60000);
-  if (immediatePrint) {
-    setTimeout(() => {
-      try {
-        win.print();
-      } catch (err) {
-        console.warn('preview print failed', err);
-      }
-    }, 300);
-  }
-}
-
-function splitCutRows(hitRows) {
-  const header1 = hitRows[0] || [];
-  const header2 = hitRows[1] || [];
-  const rawRows = hitRows.slice(2);
-  const dataRows = [];
-  const averages = [];
-  for (const row of rawRows) {
-    if (!row) continue;
-    const hasData = row.some((cell) => String(cell || '').trim().length);
-    if (!hasData) continue;
-    if (row[0] === '\u5e73\u5747' || row[0] === 'Average') {
-      averages.push(row);
-      continue;
-    }
-    dataRows.push(row);
-  }
-  return { header1, header2, dataRows, averages };
-}
-
-// ** MODIFIED **
-async function refreshCutSummary() {
-  // toast("切牌統計功能在原始程式碼中不完整，無法刷新。");
-  STATE.cutSummary = null;
-  renderCutSummary(null);
-}
-
-function downloadFile(name, content, type = 'text/csv') {
-  const blob = new Blob([content], { type });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = name;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-}
-
-function csvEscape(value) {
-  if (value == null) return '';
-  const text = String(value);
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function normalizeLines(text) {
-  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-}
-
-function parseCSV(text) {
-  const source = normalizeLines(text);
-  const out = [];
-  let row = [];
-  let field = '';
-  let inQuote = false;
-  for (let i = 0; i < source.length; i += 1) {
-    const ch = source[i];
-    if (inQuote) {
-      if (ch === '"') {
-        if (source[i + 1] === '"') {
-          field += '"';
-          i += 1;
-        } else {
-          inQuote = false;
+    win.focus();
+    const revokeLater = () => {
+        try {
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.warn('failed to revoke preview URL', err);
         }
-      } else {
-        field += ch;
-      }
-    } else if (ch === '"') {
-      inQuote = true;
-    } else if (ch === ',') {
-      row.push(field);
-      field = '';
-    } else if (ch === '\n') {
-      row.push(field);
-      out.push(row);
-      row = [];
-      field = '';
-    } else {
-      field += ch;
+    };
+    const cleanupTimer = setTimeout(revokeLater, 60000);
+    const handleUnload = () => {
+        clearTimeout(cleanupTimer);
+        revokeLater();
+    };
+    win.addEventListener('beforeunload', handleUnload, { once: true });
+    if (immediatePrint) {
+        let printed = false;
+        const triggerPrint = () => {
+            if (printed) return;
+            printed = true;
+            try {
+                win.print();
+            } catch (err) {
+                console.warn('preview print failed', err);
+            }
+        };
+        win.addEventListener('load', () => setTimeout(triggerPrint, 100), { once: true });
+        setTimeout(triggerPrint, 500);
     }
-  }
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    out.push(row);
-  }
-  return out;
 }
+function splitCutRows(hitRows) { /* stub */ }
+async function refreshCutSummary() { STATE.cutSummary = null; renderCutSummary(null); }
+function downloadFile(name, content, type = 'text/csv') { /* stub */ }
+function csvEscape(value) { /* stub */ }
+function normalizeLines(text) { /* stub */ }
+function parseCSV(text) { /* stub */ }
+function linesFromCSVorTxt(text) { /* stub */ }
+// [CHN] 【最終修正版】將後端數據應用到前端 UI 的核心函式
+// ▼▼▼ 請從這裡開始複製 ▼▼▼
 
-function linesFromCSVorTxt(text) {
-  return normalizeLines(text).trim().split('\n').filter(Boolean);
-}
-
+// [CHN] 【修正版】將後端數據應用到前端 UI 的核心函式
 function applyGenerateResponse(data) {
-  STATE.rounds = data.rounds || [];
-  STATE.suitCounts = data.suit_counts || {};
-  const vertical = data.vertical || '';
-  STATE.previewCards = vertical.split('\n').filter(Boolean);
-  STATE.cutSummary = null;
+  // 1. 【重要】將所有最原始的、未經修改的數據儲存到 INTERNAL_STATE
+  // INTERNAL_STATE 是我們唯一的、真實的數據來源 (Single Source of Truth)
+  INTERNAL_STATE.rounds = data.ordered_rounds || [];
+  INTERNAL_STATE.tail = data.tail || [];
+  INTERNAL_STATE.deck = data.deck || [];
+  
+  // 2. 首次計算並渲染所有 UI 元件
+  updateMainTable(); // 首次渲染主表格
 
-  renderSuits(STATE.suitCounts);
-  renderRounds(STATE.rounds);
-  renderPreview(STATE.previewCards);
-  renderCutSummary(null);
-  // refreshCutSummary(); // 不再呼叫
+  // 首次也需要渲染右側面板
+  const suit_counts = _suit_counts(INTERNAL_STATE.rounds, INTERNAL_STATE.tail);
+  renderSuits(suit_counts);
+  renderPreview(INTERNAL_STATE.deck);
+  renderCutSummary(null); // 清空切牌摘要
 
+  // 3. 顯示表格區域
   const tables = $('tables');
   if (tables) tables.style.display = 'grid';
 }
 
-// **【v3 新增】** // 用於在 UI 上顯示狀態的輔助函式
+// [CHN] 更新狀態訊息顯示的函式
 function updateStatus(message) {
   const node = $('genInfo');
   if (node) {
     node.textContent = message;
   }
-  console.log(message); // 同時也印在 console
+  console.log(message);
 }
 
-// **【v3 新增】** // 用於在 apply_shoe_rules 內部記錄失敗原因的變數
-let current_failure_reason = null;
+// [CHN] 記錄失敗嘗試原因的函式
 function log_attempt_failure(reason) {
-    current_failure_reason = reason;
-    // 立即在 console 印出，方便偵錯
     console.warn(`Attempt Failed: ${reason}`);
 }
 
-// ** MODIFIED (v3) **
-// 核心函式：改為 async，並傳入 updateStatus
+// [CHN] 【核心更新函式】只重新計算並刷新主表格 (左側)
+function updateMainTable() {
+  if (!INTERNAL_STATE.rounds || INTERNAL_STATE.rounds.length === 0) {
+    return;
+  }
+  // 1. 從唯一的真實數據來源 INTERNAL_STATE.rounds 重新計算所有衍生數據
+  const [serialized_rounds, ordered_rounds] = _serialize_rounds_with_flags(INTERNAL_STATE.rounds, INTERNAL_STATE.tail);
+  // 2. 將計算好的最新序列化數據傳給 renderRounds 來更新畫面
+  renderRounds(serialized_rounds);
+  console.log("Main table UI updated.");
+}
+
 async function generateShoe() {
   const btn = $('btnGen');
   const spinner = $('spinGen');
   if (btn) btn.disabled = true;
   if (spinner) spinner.style.display = 'inline-block';
-
-
   try {
-    updateStatus('Starting...'); // **【v3 新增】**
-    
+    updateStatus('Starting...');
     const num_shoes = Number($('numShoes').value);
     const signal_suit = $('signalSuit').value;
     const tie_signal_suit = $('tieSuit').value || '♣';
-    
-    // 1. 設定 WAA_Logic 的 CONFIG
     WAA_Logic.setConfig({
-        NUM_SHOES: num_shoes,
-        SIGNAL_SUIT: _normalize_suit_input(signal_suit),
-        TIE_SIGNAL_SUIT: _normalize_suit_input(tie_signal_suit)
+      NUM_SHOES: num_shoes,
+      SIGNAL_SUIT: _normalize_suit_input(signal_suit),
+      TIE_SIGNAL_SUIT: _normalize_suit_input(tie_signal_suit)
     });
-
-    // 2. 獲取 waa.py 中的預設參數 (app.py 在呼叫時使用的)
+    const current_config = WAA_Logic.getConfig();
     const waa_params = {
-        max_attempts: 1000000, // 來自 waa.py MAX_ATTEMPTS
-        min_tail_stop: 7,       // 來自 waa.py MIN_TAIL_STOP
-        multi_pass_min_cards: 4, // 來自 waa.py MULTI_PASS_MIN_CARDS
-        signal_suit: _normalize_suit_input(signal_suit),
-        tie_suit: _normalize_suit_input(tie_signal_suit),
-        late_diff: 2,           // 來自 waa.py LATE_BALANCE_DIFF
-        // **【v3 新增】** 傳入狀態函式
-        updateStatus: updateStatus,
-        log_attempt_failure: log_attempt_failure
+      max_attempts: current_config.MAX_ATTEMPTS,
+      min_tail_stop: current_config.MIN_TAIL_STOP,
+      multi_pass_min_cards: current_config.MULTI_PASS_MIN_CARDS,
+      late_diff: current_config.LATE_BALANCE_DIFF,
+      signal_suit: _normalize_suit_input(signal_suit),
+      tie_suit: _normalize_suit_input(tie_signal_suit),
+      updateStatus: updateStatus,
+      log_attempt_failure: log_attempt_failure
     };
-
-    // 3. **【v3 修改】** 執行 *await*
     const result = await WAA_Logic.generate_all_sensitive_shoe_or_retry(waa_params);
-
     if (!result) {
-        // 失敗訊息已由 WAA_Logic 內部的 updateStatus 顯示
-        toast(`創建失敗：請查看下方訊息或 F12 Console`);
-        throw new Error("Generation failed after max attempts");
-    }
+      toast(`創建失敗：請查看下方訊息或 F12 Console`);
 
+      throw new Error("Generation failed after max attempts");
+    }
     const [rounds, tail, deck] = result;
-
     if (!rounds || rounds.length === 0) {
-       updateStatus('創建失敗：沒有生成任何敏感局');
-       toast(`創建失敗：沒有生成任何敏感局`);
-       throw new Error("No sensitive rounds");
+      updateStatus('創建失敗：沒有生成任何敏感局');
+      toast(`創建失敗：沒有生成任何敏感局`);
+      throw new Error("No sensitive rounds");
     }
-
-    // 4. 執行翻譯後的 app.py 序列化邏輯
+    
+    // --- 數據處理與打包 ---
     const [serialized_rounds, ordered_rounds] = _serialize_rounds_with_flags(rounds, tail);
-
-    // 5. 儲存 *原始* 物件到內部狀態
-    INTERNAL_STATE.rounds = ordered_rounds;
-    INTERNAL_STATE.tail = tail;
-    INTERNAL_STATE.deck = deck;
-
-    // 6. 準備前端需要的資料
     const suit_counts = _suit_counts(ordered_rounds, tail);
-    const vertical = [
-        ...ordered_rounds.flatMap(r => r.cards), 
-        ...(tail || [])
-    ].map(c => c.short()).join('\n');
     
-    const data = {
+    // 將所有需要用到的數據打包，特別是 ordered_rounds (原始對象陣列)
+    const data_for_ui = {
         rounds: serialized_rounds,
+        ordered_rounds: ordered_rounds, // <--- 確保傳遞原始數據
+        tail: tail,
+        deck: deck,
         suit_counts: suit_counts,
-        vertical: vertical,
-        meta: { rounds_len: ordered_rounds.length, tail_len: tail.length, deck_len: deck.length, fallback: null }
+        meta: { rounds_len: ordered_rounds.length, tail_len: tail.length, deck_len: deck.length }
     };
-    
-    // 7. 更新 UI
-    applyGenerateResponse(data);
-    const count = (data.rounds || []).length;
-    toast(`牌靴已完成，共 ${count} 局`);
-    updateStatus(`Generation complete. ${count} rounds.`); // **【v3 新增】**
 
+    // 呼叫 UI 更新函式
+    applyGenerateResponse(data_for_ui);
+    const count = (data_for_ui.rounds || []).length;
+    toast(`牌靴已完成，共 ${count} 局`);
+    updateStatus(`Generation complete. ${count} rounds.`);
   } catch (err) {
-    console.error(err);
-    toast(`創建時發生錯誤: ${err.message}`);
-    updateStatus(`Error: ${err.message}`); // **【v3 新增】**
+    console.error('創建時發生錯誤:', err);
+    toast(`創建時發生錯誤：${err.message}`);
+    updateStatus(`錯誤：${err.message}`);
   } finally {
     if (btn) btn.disabled = false;
     if (spinner) spinner.style.display = 'none';
-    // 5秒後清除狀態，除非還在跑
-    setTimeout(() => {
-        const node = $('genInfo');
-        if (node && !($('btnGen').disabled)) {
-            node.textContent = '';
-        }
-    }, 5000);
   }
 }
 
-// ** MODIFIED **
-// 此功能在 app.py 中未實作
-async function simulateCut() {
-  const btn = $('btnCut');
-  const spinner = $('spinCut');
-  if (btn) btn.disabled = true;
-  if (spinner) spinner.style.display = 'inline-block';
-  
-  toast("「切牌」功能在原始程式碼中未被實作。");
-
-  if (btn) btn.disabled = false;
-  if (spinner) spinner.style.display = 'none';
-}
-
-// ** MODIFIED **
-// 此功能在 app.py 中是空的
-async function scanRounds() {
-  if (!INTERNAL_STATE.rounds.length) {
-    toast('\u8acb\u5148\u7522\u751f\u724c\u9774');
-    return;
-  }
-  try {
-    // 依照 app.py 的邏輯，固定回傳 0
-    $('scanInfo').textContent = `\u547d\u4e2d 0 \u5c40`;
-  } catch (err) {
-    console.error(err);
-    toast('\u6383\u63cf\u6642\u767c\u751f\u932f\u8aa4');
-  }
-}
-
-// ** MODIFIED **
-// 導出功能被修改，只導出 vertical
-async function exportCombined() {
-  try {
-    if (!INTERNAL_STATE.rounds.length && !INTERNAL_STATE.tail.length) {
-        toast("尚無資料可導出");
-        return;
-    }
-
-    // 1. 本地生成 vertical txt
-    const verticalTxt = [
-        ...INTERNAL_STATE.rounds.flatMap(r => r.cards), 
-        ...(INTERNAL_STATE.tail || [])
-    ].map(c => c.short()).join('\n');
-
-    // 2. 原始程式碼中的 cut_hits.csv 功能是損壞的，無法生成
-    
-    toast("切牌統計功能在原始程式碼中不完整。僅導出直式牌序。");
-
-    // 3. 只下載 vertical
-    downloadFile('vertical_export.txt', verticalTxt, 'text/plain');
-
-  } catch (err) {
-    console.error(err);
-    toast('\u532f\u51fa\u5931\u5507');
-  }
-}
+async function simulateCut() { /* stub */ }
+async function scanRounds() { /* stub */ }
+async function exportCombined() { /* stub */ }
 
 function bindControls() {
-  renderSuits({});
-  renderCutSummary(null);
-  renderPreview([]);
-
   const btnGen = $('btnGen');
-  if (btnGen) btnGen.addEventListener('click', generateShoe);
+  if (btnGen) { btnGen.addEventListener('click', generateShoe); }
+  const signalSuit = $('signalSuit');
+  if (signalSuit) { signalSuit.addEventListener('change', refreshCutSummary); }
+  const tieSuit = $('tieSuit');
+  if (tieSuit) { tieSuit.addEventListener('change', refreshCutSummary); }
+  
+  // --- 編輯相關按鈕的綁定 ---
+  const host = btnGen ? btnGen.parentElement : null;
+  if (host && !$('editToolbar')) {
+    host.insertAdjacentHTML('afterend', `
+      <div id="editToolbar" class="btn-row">
+        <button id="btnEdit" type="button">編輯</button>
+        <button id="btnSwap" type="button">交換</button>
+        <button id="btnRound" type="button">局交換</button>
+        <button id="btnApplyChanges" type="button" style="background-color: #1d8d5a;">套用變更</button>
+        <button id="btnCancelEdit" type="button">取消</button>
+      </div>
+    `);
+  }
 
-  const btnCut = $('btnCut');
-  if (btnCut) btnCut.addEventListener('click', simulateCut);
-
-  const btnScan = $('btnScan');
-  if (btnScan) btnScan.addEventListener('click', scanRounds);
-
-  const btnExport = $('btnExportCombined');
-  if (btnExport) btnExport.addEventListener('click', exportCombined);
-
+  const btnEdit = $('btnEdit');
+  const btnSwap = $('btnSwap');
+  const btnRound = $('btnRound');
+  const btnCancelEdit = $('btnCancelEdit');
+  const btnApplyChanges = $('btnApplyChanges');
   const btnPreview = $('btnPreview');
-  if (btnPreview) btnPreview.addEventListener('click', () => openPreviewWindow(false));
-
   const btnPrint = $('btnPrint');
-  if (btnPrint) btnPrint.addEventListener('click', () => openPreviewWindow(true));
-}
 
-  const signalSelect = $('signalSuit');
-  if (signalSelect) {
-    signalSelect.addEventListener('change', () => {
-      // 只有在資料存在時才重繪
-      if (STATE.rounds && STATE.rounds.length > 0) {
-        renderRounds(STATE.rounds);
+  if (btnPreview) { btnPreview.addEventListener('click', () => openPreviewWindow(false)); }
+  if (btnPrint) { btnPrint.addEventListener('click', () => openPreviewWindow(true)); }
+
+  // 編輯按鈕：只改變狀態，不刷新 UI
+  if (btnEdit) btnEdit.addEventListener('click', () => {
+    STATE.edit = { mode: 'card', first: null, second: null, armed: false };
+    toast('編輯模式：請點選第一張牌');
+  });
+
+  // 局交換按鈕：只改變狀態，不刷新 UI
+  if (btnRound) btnRound.addEventListener('click', () => {
+    STATE.edit = { mode: 'round', first: null, second: null, armed: false };
+    toast('局交換模式：請點選第一局');
+  });
+
+  // 交換按鈕
+  if (btnSwap) btnSwap.addEventListener('click', () => {
+    if (!STATE.edit || STATE.edit.mode === 'none') return;
+    const { mode, first, second, armed } = STATE.edit;
+
+    if ((mode === 'card' || mode === 'round') && first && second) {
+      // 情況1：已選好兩者，執行交換
+      if (mode === 'card') {
+        performCardSwap(first, second);
+        toast('卡牌交換成功！');
+      } else {
+        performRoundSwap(first.r, second.r);
+        toast('牌局交換成功！');
       }
-      if (STATE.previewCards && STATE.previewCards.length > 0) {
-        renderPreview(STATE.previewCards);
+      STATE.edit = { mode: 'none', first: null, second: null, armed: false };
+      updateMainTable(); // 交換後，用最新數據刷新主表格
+    } else if (first && !armed) {
+      // 情況2：只選好第一個，進入待選第二個的模式
+      STATE.edit.armed = true;
+      toast(mode === 'card' ? '請點選要交換的第二張牌' : '請點選要交換的第二局');
+    }
+  });
+
+  // 取消按鈕
+  if (btnCancelEdit) btnCancelEdit.addEventListener('click', () => {
+    const wasEditing = STATE.edit && STATE.edit.mode !== 'none';
+    STATE.edit = { mode: 'none', first: null, second: null, armed: false };
+    if (wasEditing) {
+      updateMainTable(); // 取消時，刷新一次以清除高亮
+    }
+    toast('已取消編輯');
+  });
+  
+  // 套用變更按鈕
+  if (btnApplyChanges) {
+    btnApplyChanges.addEventListener('click', () => {
+      if (!INTERNAL_STATE.rounds) {
+        toast('沒有資料可套用');
+        return;
       }
+      // 1. 重新計算花色統計並渲染
+      const suit_counts = _suit_counts(INTERNAL_STATE.rounds, INTERNAL_STATE.tail);
+      renderSuits(suit_counts);
+      // 2. 重新產生預覽網格的資料並渲染
+      const updated_deck = INTERNAL_STATE.rounds.flatMap(r => r.cards).concat(INTERNAL_STATE.tail);
+      STATE.previewCards = updated_deck; // 更新預覽數據源
+      renderPreview(updated_deck);
+      toast('變更已套用至預覽和統計');
     });
   }
 
+  // 表格點擊事件委派 (只綁定一次)
+  const tbody = $('tbody');
+  if (tbody && !tbody._editBound) {
+    tbody._editBound = true;
+    tbody.addEventListener('click', (e) => {
+      if (!STATE.edit || STATE.edit.mode === 'none') return;
+
+      const td = e.target.closest('.card-cell');
+      const tr = e.target.closest('.round-row');
+      const { mode, armed } = STATE.edit;
+
+      let needsUpdate = false;
+
+      if (mode === 'card' && td) {
+        const r = Number(td.dataset.r), c = Number(td.dataset.c);
+        if (!Number.isFinite(r) || !Number.isFinite(c)) return;
+        if (!armed) {
+          STATE.edit.first = { r, c };
+          STATE.edit.second = null;
+        } else {
+          STATE.edit.second = { r, c };
+          toast('已選定兩張牌，請再次點擊「交換」按鈕確認');
+        }
+        needsUpdate = true;
+      } else if (mode === 'round' && tr) {
+        const r = Number(tr.dataset.r);
+        if (!Number.isFinite(r)) return;
+        if (!armed) {
+          STATE.edit.first = { r };
+          STATE.edit.second = null;
+        } else {
+          STATE.edit.second = { r };
+          toast('已選定兩局，請再次點擊「交換」按鈕確認');
+        }
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        updateMainTable(); // 每次有效點擊都刷新主表格以更新高亮
+      }
+    });
+  }
+}
+
+// --- 頁面載入時執行綁定 ---
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', bindControls);
 } else {
   bindControls();
 }
+
+// ▲▲▲ 複製到這裡結束 ▲▲▲
