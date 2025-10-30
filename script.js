@@ -1,5 +1,3 @@
-// combined_final.js
-// 合併 9999.txt (結構化劃分) 和 wwa.txt (UI 框架、敏感局與訊號邏輯)
 // =============================================
 // --- START: waa.py translated logic ---
 // =============================================
@@ -87,7 +85,6 @@ HEART_SIGNAL_ENABLED: true,
 SIGNAL_SUIT: '♥',
 TIE_SIGNAL_SUIT: '♣',
 LATE_BALANCE_DIFF: 2,
-COLOR_RULE_ENABLED: true,
 MANUAL_TAIL: [],
 NUM_SHOES: 1,
 MIN_TAIL_STOP: 5,
@@ -104,33 +101,9 @@ const j = Math.floor(Math.random() * (i + 1));
 [array[i], array[j]] = [array[j], array[i]];
 }
 }
-/**
- * 統計陣列中每個元素出現的次數，回傳 Map
- */
-function multiset(items) {
-const counts = new Map();
-for (const item of items) { counts.set(item, (counts.get(item) || 0) + 1); }
-return counts;
-}
-/**
- * 比較兩個 Map 是否完全相等
- */
-function mapEquals(map1, map2) {
-if (map1.size !== map2.size) return false;
-for (const [key, val] of map1) { if (val !== map2.get(key)) return false; }
-return true;
-}
-/**
- * 產生陣列的所有 k 長度排列組合（遞迴產生器）
- */
-function* permutations(array, k) {
-if (k === 0) { yield []; return; }
-for (let i = 0; i < array.length; i++) {
-const first = array[i];
-const rest = [...array.slice(0, i), ...array.slice(i + 1)];
-for (const p of permutations(rest, k - 1)) { yield [first, ...p]; }
-}
-}
+
+
+
 const SWAP_TRACE = [];
 let CURRENT_SWAP_CONTEXT = 'init';
 /**
@@ -139,75 +112,19 @@ let CURRENT_SWAP_CONTEXT = 'init';
 function resetSwapTrace() {
 SWAP_TRACE.length = 0;
 }
-/**
- * 設定交換上下文標籤，執行函式 fn
- */
-function withSwapContext(label, fn) {
-const prev = CURRENT_SWAP_CONTEXT;
-CURRENT_SWAP_CONTEXT = label || 'unknown';
-try {
-return fn();
-} finally {
-CURRENT_SWAP_CONTEXT = prev;
-}
-}
-/**
- * 取得卡牌交換追蹤用的簡短描述字串
- */
-function describeCardForTrace(card) {
-if (!card) return 'unknown';
-const short = (card && typeof card.short === 'function') ? card.short() : `${card.rank || '?'}${card.suit || '?'}`;
-const round = (typeof card._round_index === 'number') ? `r${card._round_index}` : 'r?';
-const spot = (typeof card._card_index === 'number') ? `c${card._card_index}` : '';
-const seg = card._segment ? `-${card._segment}` : '';
-return `${short}@${round}${seg}${spot}`;
-}
-/**
- * 推送交換追蹤紀錄到 SWAP_TRACE
- */
-function pushSwapTrace(entry) {
-SWAP_TRACE.push(entry);
-if (typeof console !== 'undefined' && console.debug) {
-console.debug(`[swap ${entry.step}] ${entry.context}: ${entry.a_before} <-> ${entry.b_before}`);
-}
-}
+
 if (typeof window !== 'undefined') {
 window.SWAP_TRACE = SWAP_TRACE;
 window.resetSwapTrace = resetSwapTrace;
 }
+
 /**
- * 交換兩張同點數卡牌的花色
- * @deprecated - 此函式已被廢棄，改為使用物理交換的 swap_cards_by_position
- */
-/*
-function swap_suits_between_same_rank_cards(card1, card2) {
-    if (card1.rank !== card2.rank) { throw new Error("Swap Error: Cards must have the same rank for suit exchange."); }
-    const entry = {
-        step: SWAP_TRACE.length + 1,
-        context: CURRENT_SWAP_CONTEXT || 'unknown',
-        a_before: describeCardForTrace(card1),
-        b_before: describeCardForTrace(card2),
-        timestamp: Date.now(),
-    };
-    const suitA = card1.suit;
-    const suitB = card2.suit;
-    [card1.suit, card2.suit] = [suitB, suitA];
-    entry.a_after = describeCardForTrace(card1);
-    entry.b_after = describeCardForTrace(card2);
-    pushSwapTrace(entry);
-}
-*/
-/**
- * [CHN] 【新版核心】交換兩張牌在總牌靴 (deck) 中的物理位置。
- *      - 這個操作只交換位置，牌本身的所有屬性（rank, suit, color）都保持不變。
- *      - 這是符合物理現實的交換。
+
  *
  * @param {Array} deck - 完整的、包含所有卡牌的總牌靴陣列。
 // =====================【V6 最終正確版 - 替換舊的 swap_suits...】=====================
 /**
- * [CHN] 【V6 終極正確版】交換兩個在 final_rounds 中的卡牌物件
- *      - 這個函式直接修改 final_rounds 的結構，確保 UI 能正確反映交換結果。
- *      - 它依賴於一個能訪問到當前總牌局陣列的地方 (我們將使用全域的 INTERNAL_STATE.rounds)。
+
  *
  * @param {Card} card1 - 要交換的第一張牌物件。
  * @param {Card} card2 - 要交換的第二張牌物件。
@@ -256,12 +173,8 @@ function swap_cards_in_rounds(card1, card2) {
     // 為了日誌清晰，可以打印交換資訊
     console.log(`[交換成功] 將 ${rounds[r2].cards[c2].short()} (原在局 #${r1+1}) 與 ${rounds[r1].cards[c1].short()} (原在局 #${r2+1}) 交換。`);
 }
-// =====================【V6 替換區塊結束】=====================
 
-
-/**
- * 卡牌類別，包含點數、花色、位置等屬性
- */
+/*** 卡牌類別，包含點數、花色、位置等屬性*/
 class Card {
 constructor(rank, suit, pos) {
 this.rank = rank;
@@ -280,9 +193,7 @@ newCard._password_tag = this._password_tag;
 return newCard;
 }
 }
-/**
- * 建立並洗牌一副完整的牌組
- */
+/*** 建立並洗牌一副完整的牌組*/
 function build_shuffled_deck() {
 const baseR = [];
 const baseB = [];
@@ -313,9 +224,7 @@ return deck;
 }
 
 
-/**
- * 掃描所有敏感局，回傳敏感局陣列
- */
+/*** 掃描所有敏感局，回傳敏感局陣列*/
 function scan_all_sensitive_rounds(sim) {
 const out = [];
 const last = sim.deck.length - 1;
@@ -325,9 +234,7 @@ if (r && r.sensitive) { out.push(r); }
 }
 return out;
 }
-/**
- * 從卡牌池中多重嘗試找出敏感局候選
- */
+/** * 從卡牌池中多重嘗試找出敏感局候選 */
 function multi_pass_candidates_from_cards_simple(card_pool) {// 如果牌池少於4張，無法組成一局，直接回傳空陣列   
     if (card_pool.length < 4) return [];// 複製一份牌池並隨機洗牌    
     let shuffled = [...card_pool];// 建立一份臨時卡牌（每張卡牌都重新編號 pos）
@@ -484,9 +391,7 @@ S.push(i);
 }
 return S;
 };
-// ====================================================================================================
-// =====================【V6 最終正確版 - 統一替換所有規則函式 START】================================
-// ====================================================================================================
+
 
 // 【V6 正確版 - 和局訊號】
 function enforce_tie_signal_combined(final_rounds, tie_suit) { // 不再需要 deck
@@ -529,8 +434,8 @@ function enforce_tie_signal_combined(final_rounds, tie_suit) { // 不再需要 d
     return locked_ids;
 }
 
-// 【V6 正確版 - apply_combined_rules_internal】
-function apply_combined_rules_internal(final_rounds, { signal_suit, tie_suit, late_diff }, log_attempt_failure) { // 不再需要 deck
+// =====================【V20 最終版 - 請完整替換此函式】=====================
+function apply_combined_rules_internal(final_rounds, { signal_suit, tie_suit, late_diff }, log_attempt_failure) {
     let locked_ids = new Set();
 
     // 步驟 1: 處理和局訊號
@@ -551,27 +456,23 @@ function apply_combined_rules_internal(final_rounds, { signal_suit, tie_suit, la
         throw e;
     }
 
-    // 步驟 3: 最終強制驗證 (我們恢復它，確保100%成功)
+    // 步驟 4 (原步驟3): 最終強制驗證 (S局和T局的)
     const s_indices_final = compute_sidx_for_segment(final_rounds, 'A');
     for (const idx of s_indices_final) {
         const s_round = final_rounds[idx];
         const has_signal = s_round.cards.some(card => card.suit === signal_suit);
         if (!has_signal) {
-            const error_msg = `最終驗證失敗：S局 #${idx + 1} 仍然沒有訊號牌！`;
+            const error_msg = `[驗證失敗] S局 #${idx + 1} ！`;
             log_attempt_failure(error_msg);
+            // 我們必須拋出這個錯誤，因為S局訊號的優先級是最高的
             throw new Error(error_msg);
         }
     }
     console.log("[驗證成功] 所有S局均已包含訊號牌。");
 
-    // 步驟 4: 後期平衡 (在當前模型下，它們沒有意義，但我們保留空函式以防出錯)
-    late_balance();
-    balance_non_tie_suits();
-
     return final_rounds;
 }
 
-// =====================【V8 最終完美版 - 替換 distribute_signals_evenly】=====================
 /**
  * [CHN] 【V8 最終完美版】均勻分配並集中訊號牌
  *      - 採用「補缺優先」和「均勻化」策略，確保訊號牌被合理地分配到所有S局。
@@ -579,43 +480,45 @@ function apply_combined_rules_internal(final_rounds, { signal_suit, tie_suit, la
 function distribute_signals_evenly(final_rounds, signal_suit, locked_ids) {
     if (!signal_suit) return locked_ids;
 
-    const all_cards = final_rounds.flatMap(r => r.cards);
+    console.log('[Signal Balancer] start balancing.');
+
     const MAX_ITERATIONS = 1000;
+    const refreshCardMetadata = () => {
+        final_rounds.forEach((round, round_index) => {
+            (round.cards || []).forEach((card, card_index) => {
+                card._round_index = round_index;
+                card._card_index = card_index;
+            });
+        });
+    };
+
+    refreshCardMetadata();
 
     for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
         const s_indices = new Set(compute_sidx_for_segment(final_rounds, 'A'));
         if (s_indices.size === 0) break;
 
-        // --- 1. 全局盤點，計算每個S局的「缺乏度」 ---
-        let s_round_stats = [];
+        const all_cards = final_rounds.flatMap(r => r.cards);
+
+        const s_round_stats = [];
         s_indices.forEach(idx => {
             const s_round = final_rounds[idx];
             const signal_count = s_round.cards.filter(c => c.suit === signal_suit).length;
             const has_receiver_slot = s_round.cards.some(c => c.suit !== signal_suit && !locked_ids.has(c));
-            
-            // 只有當S局還有可被換出的空位時，才將其納入考慮
             if (has_receiver_slot) {
-                s_round_stats.push({
-                    round_index: idx,
-                    signal_count: signal_count,
-                });
+                s_round_stats.push({ round_index: idx, signal_count });
             }
         });
 
-        // 按「訊號牌數量」從少到多排序，這樣總是優先處理最缺牌的S局
         s_round_stats.sort((a, b) => a.signal_count - b.signal_count);
 
-        // --- 2. 尋找並執行一次「最優交換」 ---
         let swap_done_in_iter = false;
-        
-        // 從最缺牌的S局開始嘗試
+
         for (const stat of s_round_stats) {
             const target_s_round = final_rounds[stat.round_index];
             const potential_receivers = target_s_round.cards.filter(c => c.suit !== signal_suit && !locked_ids.has(c));
 
-            // 為這個最缺的S局，尋找一個可交換的 donor
             for (const receiver_card of potential_receivers) {
-                // donor 必須在非S局中
                 const donor_card = all_cards.find(card =>
                     !s_indices.has(card._round_index) &&
                     card.rank === receiver_card.rank &&
@@ -624,55 +527,45 @@ function distribute_signals_evenly(final_rounds, signal_suit, locked_ids) {
                 );
 
                 if (donor_card) {
-                    // 找到了！執行交換
-                    console.log(`[均勻化交換] 將 ${receiver_card.short()} (來自最缺的S局 #${stat.round_index + 1}) 與 ${donor_card.short()} 交換。`);
+                    console.log('[Signal Balancer] swap ' + receiver_card.short() + ' with ' + donor_card.short() + '.');
                     swap_cards_in_rounds(receiver_card, donor_card);
                     locked_ids.add(receiver_card);
                     locked_ids.add(donor_card);
-                    
+                    refreshCardMetadata();
                     swap_done_in_iter = true;
-                    break; // 內層循環中斷，去處理下一個最缺的S局
+                    break;
                 }
             }
-            if (swap_done_in_iter) {
-                break; // 外層循環中斷，每次迭代只做一次最優交換
-            }
+
+            if (swap_done_in_iter) break;
         }
 
-        // 如果本輪沒有發生任何交換，說明已經達到最優或資源枯竭
         if (!swap_done_in_iter) {
-            console.log("[交換結束] 無法再進行任何均勻化交換。");
+            console.log('[Signal Balancer] no more swaps available.');
             break;
         }
     }
 
-    // --- 最終驗證 (可選，但建議保留) ---
-    // 確保所有S局至少有一張訊號牌
     const s_indices_final = new Set(compute_sidx_for_segment(final_rounds, 'A'));
     for (const idx of s_indices_final) {
         const s_round = final_rounds[idx];
         if (!s_round.cards.some(c => c.suit === signal_suit)) {
-            throw new Error(`交換失敗：即使在均勻化後，S局 #${idx + 1} 仍然沒有訊號牌。`);
+            throw new Error('Signal balancing failed: S round #' + (idx + 1) + ' still has no signal card.');
         }
+    }
+
+    const final_all_cards = final_rounds.flatMap(r => r.cards);
+    const remaining_illegals = final_all_cards.filter(c =>
+        c.suit === signal_suit && !s_indices_final.has(c._round_index)
+    );
+    if (remaining_illegals.length > 0) {
+        console.warn('[Signal Balancer] ' + remaining_illegals.length + ' signal cards remain outside S rounds.');
     }
 
     return locked_ids;
 }
-// =====================【V8 替換區塊結束】=====================
 
-
-
-// 【V6 正確版 - 後期平衡 (空函式)】
-function late_balance() {
-    // 在當前模型下無意義，保持為空。
-}
-
-// 【V6 正確版 - 非和局花色平衡 (空函式)】
-function balance_non_tie_suits() {
-    // 在當前模型下無意義，保持為空。
-}
-
-// =====================【V6 最終正確版 - 替換總入口函式】=====================
+// =====================【V20 預先標記版 - 請替換此函式】=====================
 async function generate_all_sensitive_shoe_or_retry({max_attempts, signal_suit, tie_suit, late_diff, updateStatus, log_attempt_failure}) {
     let attempt = 1;
     while (attempt <= max_attempts) {
@@ -683,8 +576,10 @@ async function generate_all_sensitive_shoe_or_retry({max_attempts, signal_suit, 
         }
 
         try {
-            const initial_deck = build_shuffled_deck();
-            const { a_rounds, b_rounds, c_cards, final_rounds, final_card_deck } = pack_all_sensitive_and_segment(initial_deck);
+            const deck = build_shuffled_deck();
+            const { a_rounds, b_rounds, c_cards, final_rounds, final_card_deck } = pack_all_sensitive_and_segment(deck);
+
+            INTERNAL_STATE.rounds = final_rounds;
 
             if (a_rounds.length === 0) {
                 attempt++;
@@ -692,48 +587,47 @@ async function generate_all_sensitive_shoe_or_retry({max_attempts, signal_suit, 
                 continue;
             }
 
-            // 【核心】將本次生成的 final_rounds 存入全域狀態，讓交換函式可以訪問
-INTERNAL_STATE.rounds = final_rounds;
+            // 【V20 核心新增】為每張牌預先標記它所在的牌局索引和段位
+            const s_indices = new Set(compute_sidx_for_segment(final_rounds, 'A'));
+            const tie_indices = new Set();
+            for (let i = 0; i < final_rounds.length - 1; i++) {
+                if (final_rounds[i].segment === 'A' && _is_tie_result(final_rounds[i + 1].result)) {
+                    tie_indices.add(i);
+                }
+            }
 
-// 【V7 新增】為每張牌預先標記它所在的牌局索引，方便後續查找
-final_rounds.forEach((round, round_index) => {
-    round.cards.forEach(card => {
-        card._round_index = round_index;
-    });
-});
+            final_rounds.forEach((round, round_index) => {
+                round.cards.forEach(card => {
+                    card._round_index = round_index;
+                    card._segment = round.segment; // A, B, or C
+                    // 標記這張牌是否在一個 S 局或 T 訊號局中
+                    card.is_s_or_t_signal = s_indices.has(round_index) || tie_indices.has(round_index);
+                });
+            });
 
-            // 呼叫我們新的規則函式 (不再需要傳遞 deck)
             apply_combined_rules_internal(final_rounds, { signal_suit, tie_suit, late_diff }, log_attempt_failure);
 
-            // --- 準備最終返回的數據 ---
-            // 因為我們直接修改了 final_rounds，所以它本身就是最終結果
-            const final_deck_for_ui = final_rounds.flatMap(r => r.cards);
-            const used_pos_in_final_deck = new Set(final_deck_for_ui.map(c => c.pos));
-            const final_tail_cards = c_cards.filter(c => !used_pos_in_final_deck.has(c)); // 從初始的c_cards過濾
-
             const rounds_for_ui = final_rounds;
-            const tail_for_ui = final_tail_cards;
+            const tail_for_ui = c_cards.filter(c => !final_rounds.flatMap(r => r.cards).some(fc => fc.pos === c.pos));
 
             const rounds_copy = rounds_for_ui.map(r => ({ ...r, cards: r.cards.map(c => c.clone()) }));
             const tail_copy = tail_for_ui.map(c => c.clone());
+            const deck_for_ui = rounds_copy.flatMap(r => r.cards).concat(tail_copy);
 
             updateStatus(`Success on attempt ${attempt}! Finalizing...`);
-            return [rounds_copy, tail_copy, final_deck_for_ui];
+            return [rounds_copy, tail_copy, deck_for_ui];
 
         } catch (e) {
             let zhMsg = e.message;
             console.error(`第 ${attempt} 次嘗試失敗，原因: ${zhMsg}`);
             log_attempt_failure(`第 ${attempt} 次嘗試失敗，原因: ${zhMsg}`);
             attempt++;
-            continue; // 失敗了就重試
+            continue;
         }
     }
     updateStatus(`Failed to generate after ${max_attempts} attempts.`);
     return null;
 }
-// =====================【V6 替換區塊結束】=====================
-
-// =====================【V4 替換區塊結束】=====================
 
 return {
 setConfig: (newConfig) => { Object.assign(CONFIG, newConfig); },
@@ -931,16 +825,263 @@ serialized.forEach((row, idx) => {
 const is_idx = s_idx_positions.has(idx);
 row["is_sidx"] = is_idx;
 row["segment_label"] = ordered[idx].segment || ''; // III-A: 新增段位標籤
-if (ordered[idx].segment !== 'A') { row["s_idx_ok"] = false; return; }
-if (!is_idx) { row["s_idx_ok"] = false; return; }
-let ok = true;
-if (signal_enabled && signal_suit) { ok = ordered[idx].cards.some(card => card.suit === signal_suit); }
-row["s_idx_ok"] = ok;
-});
-return [serialized, ordered];
+const has_signal_suit = ordered[idx].cards.some(card => card.suit === signal_suit);
+
+        // 2. 如果這不是一個合規的S局 (is_idx 為 false)，但它卻包含了訊號花色
+        if (!is_idx && has_signal_suit && ordered[idx].segment === 'A') {
+            // 我們把它「偽裝」成一個不合規的S局，來觸發UI顯示紅色叉叉
+            row["is_sidx"] = true;  // 標記為S類局
+            row["s_idx_ok"] = false; // 標記為不合規
+            return; // 處理完畢，跳到下一輪 forEach
+        }
+        
+        // --- 以下是您原始程式碼的判斷邏輯，完全保留 ---
+        if (ordered[idx].segment !== 'A') { row["s_idx_ok"] = false; return; }
+        if (!is_idx) { row["s_idx_ok"] = false; return; }
+        let ok = true;
+        if (signal_enabled && signal_suit) { ok = has_signal_suit; } // 重用上面計算的 has_signal_suit
+        row["s_idx_ok"] = ok;
+    });
+ 
+    
+    return [serialized, ordered];
 }
 const STATE = {};
 STATE.edit = { mode: 'none', first: null, target: null, armed: false };
+//====================================================================================
+// 取代你現在的 autoColorSwap：不做 JSON 深拷貝，不會破壞 Card 原型
+// ✅ 直接覆蓋整段 autoColorSwap（其餘檔案不動）
+window.autoColorSwap = function autoColorSwap() {
+  const rounds = INTERNAL_STATE.rounds;
+  if (!Array.isArray(rounds) || rounds.length === 0) return;
+
+  // 0) S 局集合（愛心訊號）
+  const sSet = new Set(WAA_Logic.helpers.compute_sidx_new(rounds));
+  const isS = (idx) => sSet.has(idx);
+
+  // 1) 小工具：點數/規則
+  const toPoint = (r) => r==='A' ? 1 : (['10','J','Q','K'].includes(r)?0:parseInt(r,10));
+  const samePoint = (a,b)=>!!a&&!!b&&toPoint(a.rank)===toPoint(b.rank);
+  const heartCount = (r)=> (r.cards||[]).reduce((t,c)=>t+(c&&c.suit==='♥'?1:0),0);
+  const signalOK = (r,idx)=> isS(idx) ? heartCount(r)>=1 : heartCount(r)===0;
+
+  // 2) 鎖局：先鎖前四張；若要鎖整局，只需改 lockFirstFour 為 lockWholeRound
+  const lockedRounds = new Set();
+  const lockedPos = new Map(); // ridx -> Set(pos)
+  const isLocked = (ridx, posIdx) => {
+    if (!lockedRounds.has(ridx)) return false;
+    const set = lockedPos.get(ridx);
+    return set ? set.has(posIdx) : false;
+  };
+  const lockFirstFour = (ridx) => {
+    lockedRounds.add(ridx);
+    const set = new Set([0,1,2,3]);
+    lockedPos.set(ridx, set);
+  };
+  // 如需鎖整局，可改用：
+  // const lockWholeRound = (ridx) => {
+  //   lockedRounds.add(ridx);
+  //   const n = (rounds[ridx].cards||[]).length;
+  //   lockedPos.set(ridx, new Set(Array.from({length:n},(_,i)=>i)));
+  // };
+
+  // 3) 花色規則：能不能換只看 suit + S 放寬；目標花色序列只看 back_color
+  function legalSuitPair(cA, cB, idxA, idxB) {
+    if (!samePoint(cA,cB)) return false;
+    // 基本：♥↔♥ 或 非♥↔非♥
+    const basicOK = (cA.suit==='♥' && cB.suit==='♥') || (cA.suit!=='♥' && cB.suit!=='♥');
+    if (basicOK) return true;
+    // 放寬：兩局皆 S 且各自原本 ≥2♥，交換後兩局仍各 ≥1♥
+    if (isS(idxA) && isS(idxB) && heartCount(rounds[idxA])>=2 && heartCount(rounds[idxB])>=2) {
+      const postA = heartCount(rounds[idxA]) + (cB.suit==='♥'?1:0) - (cA.suit==='♥'?1:0);
+      const postB = heartCount(rounds[idxB]) + (cA.suit==='♥'?1:0) - (cB.suit==='♥'?1:0);
+      return postA>=1 && postB>=1;
+    }
+    return false;
+  }
+
+  // 4) 成本模型：同局=0、A=1、B=2、C=3（來源排序用）
+  function roundTier(idx){
+    const seg = rounds[idx]?.segment;
+    if (idx===undefined || seg===undefined) return 3;
+    if (seg==='A') return 1;
+    if (seg==='B') return 2;
+    if (seg==='C') return 3;
+    return 3;
+  }
+
+  // 5) 候選來源（避開被鎖位置）
+  function* sourceCandidates(needColor, ridx){
+    // 同局
+    for (let q=0;q<rounds[ridx].cards.length;q++){
+      if (isLocked(ridx, q)) continue;
+      if (rounds[ridx].cards[q].back_color===needColor) yield {r:ridx,c:q,cost:0};
+    }
+    // 其他局：A→B→C
+    const ids = [...rounds.keys()].filter(i=>i!==ridx);
+    ids.sort((i,j)=> roundTier(i)-roundTier(j) || i-j);
+    for (const i of ids){
+      const rc = rounds[i].cards || [];
+      for (let q=0;q<rc.length;q++){
+        if (isLocked(i, q)) continue;
+        if (rc[q].back_color===needColor) yield {r:i,c:q,cost:roundTier(i)};
+      }
+    }
+  }
+
+  // 6) 安全交換：用 performCardSwap；若破壞訊號或涉及被鎖位置就不換
+  function safeSwap(rA,iA,idxA,rB,iB,idxB){
+    if (isLocked(idxA, iA) || isLocked(idxB, iB)) return null;
+    const A=rA.cards[iA], B=rB.cards[iB];
+    if (!legalSuitPair(A,B,idxA,idxB)) return null;
+    const doSwap = () => performCardSwap({ r: idxA, c: iA }, { r: idxB, c: iB });
+    doSwap();
+    const ok = signalOK(rA,idxA) && signalOK(rB,idxB);
+    if (!ok){ doSwap(); return null; }
+    return ()=>{ doSwap(); };
+  }
+
+  // 7) 目標評分（前四張符合數/缺口）
+  function scoreRound(r, pattern){
+    const n = Math.min(4, r.cards.length);
+    let match=0, deficit=0;
+    for (let i=0;i<n;i++){
+      if (r.cards[i].back_color===pattern[i]) match++;
+      else deficit++;
+    }
+    return {match, deficit};
+  }
+
+  // 8) 在 ridx 上，最少交換完成 pattern（避開被鎖位置）
+  function solvePattern(ridx, pattern){
+    const r = rounds[ridx];
+    if (!signalOK(r, ridx)) return false;
+    const n = Math.min(4, r.cards.length);
+    const undos = [];
+
+    for (let p=0;p<n;p++){
+      if (r.cards[p].back_color===pattern[p]) continue;
+
+      let best = null;
+      for (const cand of sourceCandidates(pattern[p], ridx)){
+        // 不重覆用同一來源
+        if (undos.some(u=>u.__src && u.__src.r===cand.r && u.__src.c===cand.c)) continue;
+
+        const undo = safeSwap(r, p, ridx, rounds[cand.r], cand.c, cand.r);
+        if (!undo) continue;
+
+        // 對位置 p，交換成功即增益 1；成本依來源段位
+        const gain = 1, cost = cand.cost;
+        undo(); // 先回滾比對其它候選
+
+        const better = !best || (gain>best.gain) || (gain===best.gain && cost<best.cost) ||
+                       (gain===best.gain && cost===best.cost && cand.r < best.src.r);
+        if (better) best = {src:cand, cost, gain};
+      }
+
+      if (!best){
+        while (undos.length) { const u = undos.pop(); if (typeof u==='function') u(); }
+        return false;
+      }
+
+      const doUndo = safeSwap(r, p, ridx, rounds[best.src.r], best.src.c, best.src.r);
+      if (!doUndo){
+        while (undos.length) { const u = undos.pop(); if (typeof u==='function') u(); }
+        return false;
+      }
+      doUndo.__src = best.src;
+      undos.push(doUndo);
+    }
+    // 完成：不回滾
+    return true;
+  }
+
+  // 8.5) 局內微調：只用同局第5、6張當資源，嘗試把前四張修成 pattern
+  function refineWithinRound(ridx, pattern) {
+    const r = rounds[ridx];
+    const n = r.cards.length;
+    if (n <= 4) return false; // 沒有第5、6張就不做
+
+    // 只看第5、6張，作為候選來源
+    const donors = [];
+    for (let q = 4; q < Math.min(n, 6); q++) donors.push(q);
+
+    let changed = false;
+    const need = Math.min(4, n);
+
+    for (let p = 0; p < need; p++) {
+      if (r.cards[p].back_color === pattern[p]) continue; // 已到位
+
+      // 在 donors 裡找可與 p 交換的卡（同局交換）
+      let done = false;
+      for (const q of donors) {
+        const undo = safeSwap(r, p, ridx, r, q, ridx);
+        if (!undo) continue;
+
+        // 若交換後讓 p 到位，就保留；否則回滾
+        if (r.cards[p].back_color === pattern[p]) {
+          changed = true;
+          // donors 不重複使用同一張：把 q 從候選移除
+          const idx = donors.indexOf(q);
+          if (idx >= 0) donors.splice(idx, 1);
+          done = true;
+          break;
+        } else {
+          undo();
+        }
+      }
+      // 這個位置補不到就先略過，繼續看下一個位置
+    }
+    return changed;
+  }
+
+  // 9) 主流程：由上而下；B 段跳過（只當資源庫）
+  for (let ridx=0; ridx<rounds.length; ridx++){
+    if (rounds[ridx]?.segment === 'B') continue;  // B 段不用達成條件
+    if (!signalOK(rounds[ridx], ridx)) continue;
+
+    const pat1 = ['B','B','B','R'];
+    const pat2 = ['R','R','R','B'];
+    const s1 = scoreRound(rounds[ridx], pat1);
+    const s2 = scoreRound(rounds[ridx], pat2);
+    const first = (s1.match>s2.match || (s1.match===s2.match && s1.deficit<=s2.deficit)) ? pat1 : pat2;
+    const second = (first===pat1)?pat2:pat1;
+
+    if (solvePattern(ridx, first) || solvePattern(ridx, second)) {
+      // 達成後立即鎖住前四張（若要鎖整局，改呼叫 lockWholeRound(ridx)）
+      lockFirstFour(ridx);
+    }
+  }
+
+  // 9.5) 局內微調 pass：只修同局（A 段），用第5、6張補前四張
+  for (let ridx = 0; ridx < rounds.length; ridx++) {
+    const seg = rounds[ridx]?.segment;
+    if (seg !== 'A') continue;                 // 只修 A 段
+    if (!signalOK(rounds[ridx], ridx)) continue;
+
+    const pat1 = ['B','B','B','R'];
+    const pat2 = ['R','R','R','B'];
+
+    // 先選更接近的目標
+    const s1 = scoreRound(rounds[ridx], pat1);
+    const s2 = scoreRound(rounds[ridx], pat2);
+    const first = (s1.match > s2.match || (s1.match === s2.match && s1.deficit <= s2.deficit)) ? pat1 : pat2;
+    const second = (first === pat1) ? pat2 : pat1;
+
+    // 只在同局內試一次（先 first，再 second）
+    const ok = refineWithinRound(ridx, first) || refineWithinRound(ridx, second);
+
+    // 若局內微調成功，把前四張鎖住
+    if (ok) {
+      lockFirstFour(ridx);
+    }
+  }
+
+  // 10) 刷新 UI（你檔案裡已提供的鉤子）
+  updateMainTable();
+  renderSuits(_suit_counts(INTERNAL_STATE.rounds, INTERNAL_STATE.tail));
+  renderPreview(INTERNAL_STATE.deck);
+};
 
 // =====================【請用這個新版本替換舊的 performCardSwap】=====================
 /**
@@ -961,15 +1102,13 @@ function performCardSwap(a, b) {
   
   // 執行交換：交換兩張牌在陣列中的位置
   [INTERNAL_STATE.rounds[a.r].cards[a.c], INTERNAL_STATE.rounds[b.r].cards[b.c]] = [B, A];
-
-  // 【新增的關鍵步驟】
   // 1. 基於更新後的 INTERNAL_STATE，重新計算所有統計數據
-  console.log("卡牌交換完成，正在重新計算統計數據...");
   const updated_suit_counts = _suit_counts(INTERNAL_STATE.rounds, INTERNAL_STATE.tail);
   
   // 2. 呼叫渲染函式，用新的統計數據刷新右上角的表格
   renderSuits(updated_suit_counts);
-  console.log("右上角統計表格已更新。");
+
+
 
 }
 // =====================【替換區塊結束】=====================
@@ -1103,10 +1242,11 @@ function renderCutSummary(summary) {
   `;
 }
 function ensureRoundsHeader() { // III-B: 新增段位欄位
-const headers = ['局號', '段位', '1', '2', '3', '4', '5', '6', '結果', '訊號', '\u9592\u5bb6\u724c', '\u838a\u5bb6\u724c', '閒家', '莊家', '卡牌'];
+const headers = ['局', '段', '卡牌', '1', '2', '3', '4', '5', '6', '結果', '訊號', '\u9592\u5bb6\u724c', '\u838a\u5bb6\u724c', '閒家', '莊家'];
   $('thead').innerHTML = `<tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr>`;
 }
 
+// =====================【V13 調整欄位順序 - 請完整替換舊的 renderRounds】=====================
 function renderRounds(rounds) {
   const tbody = $('tbody');
   if (!tbody) return;
@@ -1114,170 +1254,123 @@ function renderRounds(rounds) {
     tbody.innerHTML = '';
     return;
   }
-  ensureRoundsHeader();
+  ensureRoundsHeader(); // 這個會呼叫我們修改過的新表頭
   const signal = $('signalSuit').value;
-  // 花色顏色對應
-  const SUIT_COLOR = {
-    S: '#69c0ff', // 黑桃
-    H: '#ff7a90', // 紅心
-    D: '#ffb74d', // 方塊
-    C: '#73d13d', // 梅花
-  };
+  const SUIT_COLOR = { S: '#69c0ff', H: '#ff7a90', D: '#ffb74d', C: '#73d13d' };
   const SUIT_SYMBOL = { S: '♠', H: '♥', D: '♦', C: '♣' };
   const tieSet = new Set(['Tie', 'T', '\u548c']);
-  const rowsHtml = rounds
-    .map((round, index) => {
-      const cards = round.cards || [];
-      const result = round.result || round.winner || '';
-      const winnerClass =
-        result === 'Banker' || result === '\u838a' || result === 'B'
-          ? 'win-bank'
-          : result === 'Player' || result === '\u9592' || result === 'P'
-            ? 'win-player'
-            : result === 'Tie' || result === '\u548c' || result === 'T'
-              ? 'win-tie'
-              : '';
-      const isTie = tieSet.has(result);
-const tieLetter = ($('tieSuit') && $('tieSuit').value) || '';
-const nextRes = rounds[index + 1]?.result || rounds[index + 1]?.winner || '';
-const isTieSignalRound = ((round.segment_label ?? round.segment) === 'A') && tieSet.has(nextRes);
 
+  const rowsHtml = rounds.map((round, index) => {
+    const cards = round.cards || [];
+    const result = round.result || round.winner || '';
+    const winnerClass = result === 'Banker' || result === '\u838a' || result === 'B' ? 'win-bank' : result === 'Player' || result === '\u9592' || result === 'P' ? 'win-player' : result === 'Tie' || result === '\u548c' || result === 'T' ? 'win-tie' : '';
+    
+    const color_seq = round.color_seq || '';
+    const colorHtml = color_seq ? color_seq.split('').map(ch => (ch === 'R' ? '<span class="color-r">R</span>' : (ch === 'B' ? '<span class="color-b">B</span>' : `<span>${ch}</span>`))).join('') : '';
 
-      const cardCells = [];
-      for (let i = 0; i < 6; i += 1) {
-  const card = cards[i];
-  // 保底：若 card 為空或無 label/short，仍回傳可見文字
-  const raw = cardLabel(card) || (card && card.short ? (typeof card.short === 'function' ? card.short() : card.short) : '');
-  const label = String(raw || '—'); // 永不為空
-  const suit = cardSuitFromCard(card);
-  let classes = 'mono';
-  let inline = '';
-  let coloredLabel = label;
-  const suitSym = suit ? (SUIT_SYMBOL[suit] || '') : '';
-  if (isTieSignalRound && tieLetter && suit === tieLetter && suitSym && label && label.endsWith(suitSym)) {
-  classes += ` signal-card signal-card-${tieLetter}`;
-  const color = SUIT_COLOR[tieLetter];
-  if (color) inline = ` style="color:${color}"`;
-  coloredLabel = `<span style="color:${color}">${label}</span>`;
-  } else if (signal && suit === signal && suitSym && label && label.endsWith(suitSym)) {
-  classes += ` signal-card signal-card-${signal}`;
-  const color = SIGNAL_SUIT_COLOR[signal];
-  if (color) inline = ` style="color:${color}"`;
-  coloredLabel = `<span style="color:${color}">${label}</span>`;
-} else if (suit && SUIT_COLOR[suit] && suitSym && label && label.endsWith(suitSym)) {
-  const numPart = label.slice(0, label.length - suitSym.length);
-  coloredLabel = `${numPart}<span style="color:${SUIT_COLOR[suit]}">${suitSym}</span>`;
-}
+    const tieLetter = ($('tieSuit') && $('tieSuit').value) || '';
+    const nextRes = rounds[index + 1]?.result || rounds[index + 1]?.winner || '';
+    const isTieSignalRound = ((round.segment_label ?? round.segment) === 'A') && tieSet.has(nextRes);
 
+    const cardCells = [];
+    for (let i = 0; i < 6; i += 1) {
+      const card = cards[i];
+      const raw = cardLabel(card) || '';
+      const label = String(raw || '—');
+      const suit = cardSuitFromCard(card);
+      
+      let classes = 'mono card-cell';
+      let inline = '';
+      let coloredLabel = label;
+      const suitSym = suit ? (SUIT_SYMBOL[suit] || '') : '';
 
-  // 帶上資料座標，供點兩格交換使用
-const isFirst = STATE.edit && STATE.edit.first &&
-              STATE.edit.first.r === index && STATE.edit.first.c === i;
-const isSecond = STATE.edit && STATE.edit.second &&
-               STATE.edit.second.r === index && STATE.edit.second.c === i;
-
-if (isFirst || isSecond) {
-  const outlineColor = isFirst ? '#ffd666' : '#69c0ff'; // 第一張用黃色，第二張用藍色
-  const styleToAdd = `outline: 2px solid ${outlineColor}; background: rgba(255, 214, 102, 0.12);`;
-  
-  if (inline.includes('style=')) {
-    inline = inline.replace(/"$/, `; ${styleToAdd}"`);
-  } else {
-    inline = ` style="${styleToAdd}"`;
-  }
-}
-
-cardCells.push(
-  `<td class="${classes} card-cell" data-r="${index}" data-c="${i}"${inline}>${coloredLabel}</td>`
-);
-
+      const card_color = color_seq[i];
+      if (card_color === 'R') {
+          classes += ' card-bg-red';
+      } else if (card_color === 'B') {
+          classes += ' card-bg-blue';
       }
-      const playerCards = (round.player || round.player_cards || []).join('/') || '';
-      const bankerCards = (round.banker || round.banker_cards || []).join('/') || '';
-      const colorSeq = round.color_seq || round.colors || '';
-      const colorHtml = colorSeq
-        ? colorSeq
-            .split('')
-            .map((ch) => {
-              if (ch === 'R') return '<span class="color-r">R</span>';
-              if (ch === 'B') return '<span class="color-b">B</span>';
-              return `<span>${ch}</span>`;
-            })
-            .join('')
-        : '';
-      const isSIdx = Boolean(round.is_sidx);
-      const sIdxOk = Boolean(round.s_idx_ok);
-      // S_idx 欄顯示訊號花色符號，顏色隨 signal 變
-      let sIdxText = '';
-let sIdxClass = '';
-if (isTieSignalRound) {
-  const sym = SUIT_SYMBOL[tieLetter] || '♣';
-  const color = SUIT_COLOR[tieLetter] || '#73d13d';
-  sIdxText = `<span style="color:${color};font-weight:700">${sym}</span>`;
-  sIdxClass = 'sidx-ok';
-} else if (isSIdx) {
-    // 這是 S 局
-    if (sIdxOk) {
-        // S 局，且有訊號牌 -> 顯示 ♥
+
+      if (isTieSignalRound && tieLetter && suit === tieLetter && suitSym && label.endsWith(suitSym)) {
+        classes += ` signal-card signal-card-${tieLetter}`;
+        const color = SUIT_COLOR[tieLetter];
+        if (color) inline = ` style="color:${color}"`;
+        coloredLabel = `<span style="color:${color}">${label}</span>`;
+      } else if (signal && suit === signal && suitSym && label.endsWith(suitSym)) {
+        classes += ` signal-card signal-card-${signal}`;
+        const color = SIGNAL_SUIT_COLOR[signal];
+        if (color) inline = ` style="color:${color}"`;
+        coloredLabel = `<span style="color:${color}">${label}</span>`;
+      } else if (suit && SUIT_COLOR[suit] && suitSym && label.endsWith(suitSym)) {
+        const numPart = label.slice(0, label.length - suitSym.length);
+        coloredLabel = `${numPart}<span style="color:${SUIT_COLOR[suit]}">${suitSym}</span>`;
+      }
+
+      const isFirst = STATE.edit && STATE.edit.first && STATE.edit.first.r === index && STATE.edit.first.c === i;
+      const isSecond = STATE.edit && STATE.edit.second && STATE.edit.second.r === index && STATE.edit.second.c === i;
+      if (isFirst || isSecond) {
+        const outlineColor = isFirst ? '#ffd666' : '#69c0ff';
+        const styleToAdd = `outline: 2px solid ${outlineColor}; background: rgba(255, 214, 102, 0.12);`;
+        if (inline.includes('style=')) {
+          inline = inline.replace(/"$/, `; ${styleToAdd}"`);
+        } else {
+          inline = ` style="${styleToAdd}"`;
+        }
+      }
+
+      cardCells.push(`<td class="${classes}" data-r="${index}" data-c="${i}"${inline}>${coloredLabel}</td>`);
+    }
+
+    const playerCards = (round.player || round.player_cards || []).join('/') || '';
+    const bankerCards = (round.banker || round.banker_cards || []).join('/') || '';
+    const isSIdx = Boolean(round.is_sidx);
+    const sIdxOk = Boolean(round.s_idx_ok);
+    let sIdxText = '';
+    let sIdxClass = '';
+
+    if (isTieSignalRound) {
+      const sym = SUIT_SYMBOL[tieLetter] || '♣';
+      const color = SUIT_COLOR[tieLetter] || '#73d13d';
+      sIdxText = `<span style="color:${color};font-weight:700">${sym}</span>`;
+      sIdxClass = 'sidx-ok';
+    } else if (isSIdx) {
+      if (sIdxOk) {
         const sym = SUIT_SYMBOL[signal] || '♥';
         const color = SUIT_COLOR[signal] || '#ff7a90';
         sIdxText = `<span style="color:${color};font-weight:700">${sym}</span>`;
         sIdxClass = 'sidx-ok';
-    } else {
-        // S 局，但沒有訊號牌 -> 顯示 ✗
+      } else {
         sIdxText = '&#10006;';
         sIdxClass = 'sidx-bad';
+      }
     }
-} else {
-    // 這不是 S 局
-    // 檢查這個非S局裡是否意外包含了訊號牌
-    const hasStraySignal = cards.some(card => card && card.suit === signal);
-    if (hasStraySignal) {
-        // 如果有，也顯示一個叉，表示這是一個「污染」
-        sIdxText = '&#10006;';
-        sIdxClass = 'sidx-bad';
+
+    const indexLabel = round.is_tail ? '\u5c3e\u5c40' : index + 1;
+    let rowClass = round.is_tail ? 'tail-row' : '';
+    if (STATE.edit && STATE.edit.mode === 'round') {
+      const isFirst = STATE.edit.first && STATE.edit.first.r === index;
+      const isSecond = STATE.edit.second && STATE.edit.second.r === index;
+      if (isFirst) rowClass += ' highlight-first';
+      if (isSecond) rowClass += ' highlight-second';
     }
-    // 如果沒有，就保持空白
-}
 
-
-      const indexLabel = round.is_tail ? '\u5c3e\u5c40' : index + 1;
-      // 【新的高亮邏輯 for 牌局】
-let rowClass = round.is_tail ? 'tail-row' : '';
-
-if (STATE.edit && STATE.edit.mode === 'round') {
-  const isFirst = STATE.edit.first && STATE.edit.first.r === index;
-  const isSecond = STATE.edit.second && STATE.edit.second.r === index;
-
-  if (isFirst) {
-    rowClass += ' highlight-first'; // 添加高亮 class
-  }
-  if (isSecond) {
-    rowClass += ' highlight-second'; // 添加高亮 class
-  }
-}
-
-      const segmentLabel = round.segment_label ?? round.segment ?? '';
-      return `
-        <tr class="${rowClass} round-row" data-r="${index}">
-  <td>${indexLabel}</td>
-  <td class="mono segment-cell">${segmentLabel}</td>
-  ${cardCells.join('')}
-
-          <td class="${winnerClass}">${result}</td>
-          <td class="mono ${sIdxClass}">${sIdxText}</td>
-          <td class="mono">${playerCards}</td>
-          <td class="mono">${bankerCards}</td>
-          <td>${round.player_point ?? ''}</td>
-          <td>${round.banker_point ?? ''}</td>
-          <td class="mono color-seq">${colorHtml}</td>
-        </tr>
-      `;
-    })
-    .join('');
+    const segmentLabel = round.segment_label ?? round.segment ?? '';
+    return `<tr class="${rowClass} round-row" data-r="${index}">
+      <td>${indexLabel}</td>
+      <td class="mono segment-cell">${segmentLabel}</td>
+      <td class="mono color-seq">${colorHtml}</td>
+      ${cardCells.join('')}
+      <td class="${winnerClass}">${result}</td>
+      <td class="mono ${sIdxClass}">${sIdxText}</td>
+      <td class="mono">${playerCards}</td>
+      <td class="mono">${bankerCards}</td>
+      <td>${round.player_point ?? ''}</td>
+      <td>${round.banker_point ?? ''}</td>
+    </tr>`;
+  }).join('');
   tbody.innerHTML = rowsHtml;
-
 }
+
 function sortedRoundsByStartIndex(rounds) { /* stub */ }
 function flattenRoundColorSequence(rounds) { /* stub */ }
 function buildDeckGrid(cards, signal, rounds = STATE.rounds) {
@@ -1366,15 +1459,15 @@ function openPreviewWindow(immediatePrint = false) {
       .cell.card-red{background: #2d1b22;color: #ffd6dc;}
       .cell.card-blue{background: #162437;color #d7e9ff;}
       .cell.signal-match{box-shadow:inset 0 0 0 2px #ffd591;}
-      @media print{
-        body{padding:12px;background: #000;color: #000;}
-        .toolbar{display:none;}
-        .grid-preview{width:1200px;max-width:100%;margin:0 auto;border-color: #000;}
-        .cell{border:1px solid #000;color: #000;background: #000;}
-        .cell.card-red{background: #f5c5c5;}
-        .cell.card-blue{background: #eff0f7ff;}
-        .cell.signal-match{box-shadow:inset 0 0 0 2px #f80404ff;}
-      }
+      @media print {
+    body { padding:12px; background: #fff; color: #222; }
+    .toolbar { display:none; }
+    .grid-preview { width:1200px; max-width:100%; margin:0 auto; border-color: #bbb; }
+    .cell { border:1px solid #000; color: #000; background: #fff; }
+    .cell.card-red { background: #00ffff; color: #000; }      /* 鮮紅色背景，白字 */
+    .cell.card-blue { background: #ffff00; color: #000; }     /* 鮮藍色背景，白字 */
+    .cell.signal-match { box-shadow:inset 0 0 0 3px #ff0000; color: #ff0000 !important; } /* 橘色粗框，紅字 */
+}
     </style>
   </head>
   <body>
@@ -1429,12 +1522,9 @@ function csvEscape(value) { /* stub */ }
 function normalizeLines(text) { /* stub */ }
 function parseCSV(text) { /* stub */ }
 function linesFromCSVorTxt(text) { /* stub */ }
-// [CHN] 【最終修正版】將後端數據應用到前端 UI 的核心函式
-// ▼▼▼ 請從這裡開始複製 ▼▼▼
 
 // [CHN] 【修正版】將後端數據應用到前端 UI 的核心函式
 function applyGenerateResponse(data) {
-  // 1. 【重要】將所有最原始的、未經修改的數據儲存到 INTERNAL_STATE
   // INTERNAL_STATE 是我們唯一的、真實的數據來源 (Single Source of Truth)
   INTERNAL_STATE.rounds = data.ordered_rounds || [];
   INTERNAL_STATE.tail = data.tail || [];
@@ -1553,14 +1643,28 @@ async function scanRounds() { /* stub */ }
 async function exportCombined() { /* stub */ }
 
 function bindControls() {
+  // --- 步驟 1: 綁定頁面上已存在的靜態按鈕 ---
   const btnGen = $('btnGen');
   if (btnGen) { btnGen.addEventListener('click', generateShoe); }
+
   const signalSuit = $('signalSuit');
   if (signalSuit) { signalSuit.addEventListener('change', refreshCutSummary); }
+
   const tieSuit = $('tieSuit');
   if (tieSuit) { tieSuit.addEventListener('change', refreshCutSummary); }
+
+  const btnExportCombined = $('btnExportCombined');
+  if (btnExportCombined) {
+    btnExportCombined.addEventListener('click', exportRawDataToCSV);
+  }
   
-  // --- 編輯相關按鈕的綁定 ---
+  const btnPreview = $('btnPreview');
+  const btnPrint = $('btnPrint');
+  if (btnPreview) { btnPreview.addEventListener('click', () => openPreviewWindow(false)); }
+  if (btnPrint) { btnPrint.addEventListener('click', () => openPreviewWindow(true)); }
+
+
+  // --- 步驟 2: 動態創建編輯工具列 ---
   const host = btnGen ? btnGen.parentElement : null;
   if (host && !$('editToolbar')) {
     host.insertAdjacentHTML('afterend', `
@@ -1568,10 +1672,39 @@ function bindControls() {
         <button id="btnEdit" type="button">編輯</button>
         <button id="btnSwap" type="button">交換</button>
         <button id="btnRound" type="button">局交換</button>
-        <button id="btnApplyChanges" type="button" style="background-color: #1d8d5a;">套用變更</button>
+        <button id="btnAutoSwap" type="button" style="background-color:#7c3aed;">自動交換</button>
+        <button id="btnApplyChanges" type="button" style="background-color:#1d8d5a;">套用變更</button>
         <button id="btnCancelEdit" type="button">取消</button>
       </div>
     `);
+  }
+
+  // --- 步驟 3: 在創建之後，才獲取並綁定這些動態按鈕 ---
+  // 將所有動態按鈕的獲取和綁定邏輯都移到這裡！
+  
+  const btnAutoSwap = $('btnAutoSwap');
+  if (btnAutoSwap) {
+    btnAutoSwap.addEventListener('click', () => {
+      if (!INTERNAL_STATE.rounds || INTERNAL_STATE.rounds.length === 0) {
+        toast('請先創建牌靴');
+        return;
+      }
+      try {
+        autoColorSwap();
+        updateMainTable();
+        const suit_counts = _suit_counts(INTERNAL_STATE.rounds, INTERNAL_STATE.tail);
+        renderSuits(suit_counts);
+        const updated_deck = INTERNAL_STATE.rounds
+          .flatMap(r => r.cards)
+          .concat(INTERNAL_STATE.tail);
+        STATE.previewCards = updated_deck;
+        renderPreview(updated_deck);
+        toast('自動交換完成');
+      } catch (e) {
+        console.error(e);
+        toast('自動交換失敗：' + e.message);
+      }
+    });
   }
 
   const btnEdit = $('btnEdit');
@@ -1579,57 +1712,75 @@ function bindControls() {
   const btnRound = $('btnRound');
   const btnCancelEdit = $('btnCancelEdit');
   const btnApplyChanges = $('btnApplyChanges');
-  const btnPreview = $('btnPreview');
-  const btnPrint = $('btnPrint');
 
-  if (btnPreview) { btnPreview.addEventListener('click', () => openPreviewWindow(false)); }
-  if (btnPrint) { btnPrint.addEventListener('click', () => openPreviewWindow(true)); }
+  // 編輯按鈕 (使用我們上一輪的 DEBUG 版本)
+  if (btnEdit) {
+    btnEdit.addEventListener('click', () => {
+        STATE.edit = { mode: 'card', first: null, second: null, armed: false };
+        console.log('[DEBUG] 進入卡牌編輯模式。STATE:', STATE.edit);
+        toast('編輯模式：請點選第一張牌');
+    });
+  } else {
+    console.error('[CRITICAL] 找不到 #btnEdit 按鈕！綁定失敗。');
+  }
 
-  // 編輯按鈕：只改變狀態，不刷新 UI
-  if (btnEdit) btnEdit.addEventListener('click', () => {
-    STATE.edit = { mode: 'card', first: null, second: null, armed: false };
-    toast('編輯模式：請點選第一張牌');
-  });
+  // 局交換按鈕 (使用我們上一輪的 DEBUG 版本)
+  if (btnRound) {
+    btnRound.addEventListener('click', () => {
+        STATE.edit = { mode: 'round', first: null, second: null, armed: false };
+        console.log('[DEBUG] 進入局交換模式。STATE:', STATE.edit);
+        toast('局交換模式：請點選第一局');
+    });
+  } else {
+    console.error('[CRITICAL] 找不到 #btnRound 按鈕！綁定失敗。');
+  }
 
-  // 局交換按鈕：只改變狀態，不刷新 UI
-  if (btnRound) btnRound.addEventListener('click', () => {
-    STATE.edit = { mode: 'round', first: null, second: null, armed: false };
-    toast('局交換模式：請點選第一局');
-  });
-
-  // 交換按鈕
-  if (btnSwap) btnSwap.addEventListener('click', () => {
-    if (!STATE.edit || STATE.edit.mode === 'none') return;
-    const { mode, first, second, armed } = STATE.edit;
-
-    if ((mode === 'card' || mode === 'round') && first && second) {
-      // 情況1：已選好兩者，執行交換
-      if (mode === 'card') {
-        performCardSwap(first, second);
-        toast('卡牌交換成功！');
-      } else {
-        performRoundSwap(first.r, second.r);
-        toast('牌局交換成功！');
-      }
-      STATE.edit = { mode: 'none', first: null, second: null, armed: false };
-      updateMainTable(); // 交換後，用最新數據刷新主表格
-    } else if (first && !armed) {
-      // 情況2：只選好第一個，進入待選第二個的模式
-      STATE.edit.armed = true;
-      toast(mode === 'card' ? '請點選要交換的第二張牌' : '請點選要交換的第二局');
-    }
-  });
+  // 交換按鈕 (使用我們上一輪的 DEBUG 版本)
+  if (btnSwap) {
+    btnSwap.addEventListener('click', () => {
+        console.log('[DEBUG] "交換" 按鈕被點擊。目前的 STATE:', JSON.parse(JSON.stringify(STATE.edit || {})));
+        if (!STATE.edit || STATE.edit.mode === 'none') {
+            console.log('[DEBUG] 判斷：模式為 none，操作中止。');
+            return;
+        }
+        const { mode, first, second, armed } = STATE.edit;
+        if (first && second) {
+            console.log(`[DEBUG] 判斷：first 和 second 皆有值，準備執行交換。 first: ${JSON.stringify(first)}, second: ${JSON.stringify(second)}`);
+            if (mode === 'card') {
+                performCardSwap(first, second);
+                toast('卡牌交換成功！');
+            } else {
+                performRoundSwap(first.r, second.r);
+                toast('牌局交換成功！');
+            }
+            STATE.edit = { mode: 'none', first: null, second: null, armed: false };
+            console.log('[DEBUG] 交換完成，STATE 已重置。');
+            updateMainTable();
+        } else if (first && !armed) {
+            STATE.edit.armed = true;
+            console.log('[DEBUG] 判斷：僅 first 有值，進入 armed 狀態。');
+            toast(mode === 'card' ? '請點選要交換的第二張牌' : '請點選要交換的第二局');
+        } else {
+            console.log('[DEBUG] 判斷：其他情況，提示使用者先選取。');
+        }
+    });
+  } else {
+    console.error('[CRITICAL] 找不到 #btnSwap 按鈕！綁定失敗。');
+  }
 
   // 取消按鈕
-  if (btnCancelEdit) btnCancelEdit.addEventListener('click', () => {
-    const wasEditing = STATE.edit && STATE.edit.mode !== 'none';
-    STATE.edit = { mode: 'none', first: null, second: null, armed: false };
-    if (wasEditing) {
-      updateMainTable(); // 取消時，刷新一次以清除高亮
-    }
-    toast('已取消編輯');
-  });
-  
+  if (btnCancelEdit) {
+    btnCancelEdit.addEventListener('click', () => {
+        const wasEditing = STATE.edit && STATE.edit.mode !== 'none';
+        STATE.edit = { mode: 'none', first: null, second: null, armed: false };
+        if (wasEditing) {
+            updateMainTable();
+        }
+        console.log('[DEBUG] 已取消編輯，STATE 已重置。');
+        toast('已取消編輯');
+    });
+  }
+
   // 套用變更按鈕
   if (btnApplyChanges) {
     btnApplyChanges.addEventListener('click', () => {
@@ -1637,60 +1788,65 @@ function bindControls() {
         toast('沒有資料可套用');
         return;
       }
-      // 1. 重新計算花色統計並渲染
       const suit_counts = _suit_counts(INTERNAL_STATE.rounds, INTERNAL_STATE.tail);
       renderSuits(suit_counts);
-      // 2. 重新產生預覽網格的資料並渲染
       const updated_deck = INTERNAL_STATE.rounds.flatMap(r => r.cards).concat(INTERNAL_STATE.tail);
-      STATE.previewCards = updated_deck; // 更新預覽數據源
+      STATE.previewCards = updated_deck;
       renderPreview(updated_deck);
       toast('變更已套用至預覽和統計');
     });
   }
 
-  // 表格點擊事件委派 (只綁定一次)
+  // --- 步驟 4: 綁定表格點擊事件 (這個位置不變) ---
   const tbody = $('tbody');
   if (tbody && !tbody._editBound) {
     tbody._editBound = true;
+    // ... (tbody 的事件監聽器程式碼，使用我們上一輪的 DEBUG 版本) ...
     tbody.addEventListener('click', (e) => {
-      if (!STATE.edit || STATE.edit.mode === 'none') return;
-
-      const td = e.target.closest('.card-cell');
-      const tr = e.target.closest('.round-row');
-      const { mode, armed } = STATE.edit;
-
-      let needsUpdate = false;
-
-      if (mode === 'card' && td) {
-        const r = Number(td.dataset.r), c = Number(td.dataset.c);
-        if (!Number.isFinite(r) || !Number.isFinite(c)) return;
-        if (!armed) {
-          STATE.edit.first = { r, c };
-          STATE.edit.second = null;
-        } else {
-          STATE.edit.second = { r, c };
-          toast('已選定兩張牌，請再次點擊「交換」按鈕確認');
+        if (!STATE.edit || STATE.edit.mode === 'none') return;
+        console.log('[DEBUG] 表格被點擊。目前的 STATE:', JSON.parse(JSON.stringify(STATE.edit)));
+        const td = e.target.closest('.card-cell');
+        const tr = e.target.closest('.round-row');
+        const { mode, armed } = STATE.edit;
+        let needsUpdate = false;
+        if (mode === 'card' && td) {
+            const r = Number(td.dataset.r), c = Number(td.dataset.c);
+            if (!Number.isFinite(r) || !Number.isFinite(c)) return;
+            if (!armed) {
+                STATE.edit.first = { r, c };
+                STATE.edit.second = null;
+                console.log(`[DEBUG] 點擊設定 first card: {r: ${r}, c: ${c}}`);
+            } else {
+                STATE.edit.second = { r, c };
+                console.log(`[DEBUG] 點擊設定 second card: {r: ${r}, c: ${c}}`);
+                toast('已選定兩張牌，請再次點擊「交換」按鈕確認');
+            }
+            needsUpdate = true;
+        } else if (mode === 'round' && tr) {
+            const r = Number(tr.dataset.r);
+            if (!Number.isFinite(r)) return;
+            if (!armed) {
+                STATE.edit.first = { r };
+                STATE.edit.second = null;
+                console.log(`[DEBUG] 點擊設定 first round: {r: ${r}}`);
+            } else {
+                STATE.edit.second = { r };
+                console.log(`[DEBUG] 點擊設定 second round: {r: ${r}}`);
+                toast('已選定兩局，請再次點擊「交換」按鈕確認');
+            }
+            needsUpdate = true;
         }
-        needsUpdate = true;
-      } else if (mode === 'round' && tr) {
-        const r = Number(tr.dataset.r);
-        if (!Number.isFinite(r)) return;
-        if (!armed) {
-          STATE.edit.first = { r };
-          STATE.edit.second = null;
-        } else {
-          STATE.edit.second = { r };
-          toast('已選定兩局，請再次點擊「交換」按鈕確認');
+        if (needsUpdate) {
+            console.log('[DEBUG] 觸發 updateMainTable() 刷新UI。');
+            updateMainTable();
         }
-        needsUpdate = true;
-      }
-
-      if (needsUpdate) {
-        updateMainTable(); // 每次有效點擊都刷新主表格以更新高亮
-      }
     });
   }
-}
+} // bindControls 函式結束
+
+
+
+
 
 // --- 頁面載入時執行綁定 ---
 if (document.readyState === 'loading') {
@@ -1699,4 +1855,61 @@ if (document.readyState === 'loading') {
   bindControls();
 }
 
-// ▲▲▲ 複製到這裡結束 ▲▲▲
+
+function exportRawDataToCSV() {
+    if (!INTERNAL_STATE.rounds || INTERNAL_STATE.rounds.length === 0) {
+        toast('沒有數據可導出。請先生成牌靴。');
+        return;
+    }
+
+    // 1. 獲取與 UI 顯示完全一致的序列化數據
+    const [serialized_rounds, ] = _serialize_rounds_with_flags(INTERNAL_STATE.rounds, INTERNAL_STATE.tail);
+
+    // 2. 定義我們要導出的 CSV 表頭 (已更新)
+    const headers = [
+        "round_number", "segment", "color_seq", 
+        "card_1", "card_2", "card_3", "card_4", "card_5", "card_6",
+        "result", "signal"
+    ];
+
+    // 3. 將每一局的數據，轉換成 CSV 的一行
+    const csv_rows = serialized_rounds.map((round, index) => {
+        const row = [];
+        
+        // 【修正】使用 index + 1 作為局號
+        row.push(index + 1); 
+        
+        row.push(round.segment_label);
+        row.push(round.color_seq);
+
+        for (let i = 0; i < 6; i++) {
+            row.push(round.cards[i] ? round.cards[i].label.replace(/,/g, ';') : ""); // 防止逗號干擾CSV
+        }
+
+        row.push(round.result);
+
+        // 【修正】判斷 S/T 訊號，並轉換為 "S", "T" 或 ""
+        const is_s = round.is_sidx;
+        // 重新計算 T 局，因為它依賴於下一局的結果
+        const next_round = serialized_rounds[index + 1];
+        const is_t = (round.segment_label === 'A') && (next_round && ['和', 'Tie', 'T'].includes(next_round.result));
+        const signal_char = is_s ? "S" : (is_t ? "T" : "");
+        row.push(signal_char);
+
+        return row.join(',');
+    });
+
+    // 4. 將表頭和所有行數據組合在一起
+    const csv_content = [headers.join(','), ...csv_rows].join('\n');
+
+    // 5. 創建並下載 CSV 檔案
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv_content], { type: 'text/csv;charset=utf-8;' }); // 添加 BOM 防止 Excel 亂碼
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "br_processed_data.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
