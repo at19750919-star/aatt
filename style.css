@@ -157,7 +157,7 @@ label{font-size:16px;color:var(--muted);text-align:center;font-weight:600} /* �
 input[type=number]{height:40px;border-radius:10px;border:1px solid #2a3342;background:#0f1520;color:var(--text);padding:0 10px;outline:none;width:80px;text-align:center;font-size:16px} /* 功能：統一起迴圈數輸入的尺寸與外觀 */
 
 /* 範圍：下拉選單 */
-select{height:40px;border-radius:10px;border:1px solid #2a3342;background:#0f1520;color:var(--text);padding:0 10px;outline:none;width:120px;text-align:center;font-size:15px} /* 功能：維持選單與輸入框一致的深色主題 */
+select{height:40px;border-radius:10px;border:1px solid #2a3342;background:#0f1520;color:var(--text);padding:0 10px;outline:none;width:120px;text-align:center;font-size:15px;margin: 5px;} /* 功能：維持選單與輸入框一致的深色主題 */
 
 /* 範圍：共用按鈕 */
 button{height:40px;padding:0 18px;border-radius:10px;border:1px solid #2a3342;background:#133b6b;color:#e7f1ff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:15px;font-weight:600} /* 功能：設定按鈕的尺寸、配色與內文置中 */
@@ -324,4 +324,35 @@ td.signal-card-C{color:#73d13d !important} /* 功能：以綠色凸顯梅花訊�
     max-width:100vw;
     margin: 0 auto !important;
   }
+}
+
+/* 牌局高亮樣式 */
+tr.highlight-first > td {
+  background-color: rgba(255, 214, 102, 0.15) !important; /* 淡黃色背景 */
+  box-shadow: inset 3px 0 0 0 #ffd666; /* 左側黃色邊框 */
+}
+
+tr.highlight-second > td {
+  background-color: rgba(105, 192, 255, 0.15) !important; /* 淡藍色背景 */
+  box-shadow: inset 3px 0 0 0 #69c0ff; /* 左側藍色邊框 */
+}
+/* =========================================== */
+/* V9 新增：卡牌背景色樣式                     */
+/* =========================================== */
+
+/* 紅色背景，搭配一個淺色的邊框來區分儲存格 */
+.card-bg-red { 
+    background-color: #4a222a; /* 一個不會太刺眼的深紅色 */
+    border-left: 1px solid #63333d;
+}
+
+/* 藍色背景，搭配一個淺色的邊框 */
+.card-bg-blue { 
+    background-color: #1c2a4d; /* 一個不會太刺眼的深藍色 */
+    border-left: 1px solid #2a4075;
+}
+
+/* 讓第一張牌的左邊框也顯示出來 */
+td.card-cell:first-child {
+    border-left: 1px solid #333;
 }
