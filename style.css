@@ -342,7 +342,7 @@ tr.highlight-second > td {
 
 /* 紅色背景，搭配一個淺色的邊框來區分儲存格 */
 .card-bg-red { 
-    background-color: #ffff00; /* 一個不會太刺眼的深紅色 */
+    background-color: #676712; /* 一個不會太刺眼的深紅色 */
     border-left: 1px solid #63333d;
 }
 
@@ -356,5 +356,6 @@ tr.highlight-second > td {
 td.card-cell:first-child {
     border-left: 1px solid #333;
 }
+
 
 
