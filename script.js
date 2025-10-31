@@ -75,7 +75,7 @@ const sim2 = new Simulator(d2);
 const r2 = sim2.simulate_round(start, { no_swap: true });
 if (!r2) return [null, 0];
 return [r2.result, r2.cards.length];
-}
+
 }
 const WAA_Logic = (() => {
 const CONFIG = {
@@ -2062,6 +2062,7 @@ function exportRawDataToCSV() {
     link.click();
     document.body.removeChild(link);
 }
+
 
 
 
