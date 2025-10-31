@@ -18,64 +18,66 @@ get card_count() { return this.cards.length; }
 return r;
 }
 class Simulator {
-constructor(deck) { this.deck = deck; }
-simulate_round(start, { no_swap = false } = {}) {
-const d = this.deck;
-if (start + 3 >= d.length) return null;
-const [P1, B1, P2, B2] = d.slice(start, start + 4);
-let idx = start + 4;
-let p_tot = (P1.point() + P2.point()) % 10;
-let b_tot = (B1.point() + B2.point()) % 10;
-let natural = (p_tot === 8 || p_tot === 9 || b_tot === 8 || b_tot === 9);
-let p_cards = [P1, P2];
-let b_cards = [B1, B2];
-if (!natural) {
-let p3 = null;
-if (p_tot <= 5) {
-if (idx >= d.length) return null;
-p3 = d[idx]; p_cards.push(p3); idx++; p_tot = (p_tot + p3.point()) % 10;
-}
-if (p3 === null) {
-if (b_tot <= 5) {
-if (idx >= d.length) return null;
-let b3 = d[idx]; b_cards.push(b3); idx++; b_tot = (b_tot + b3.point()) % 10;
-}
-} else {
-const pt = p3.point();
-const draw = () => {
-if (idx >= d.length) return false;
-let b3 = d[idx]; b_cards.push(b3); idx++; b_tot = (b_tot + b3.point()) % 10; return true;
-};
-if (b_tot <= 2) {
-if (!draw()) return null;
-} else if (b_tot === 3 && pt !== 8) {
-if (!draw()) return null;
-} else if (b_tot === 4 && [1,2,3,4,5,6].includes(pt)) {
-  if (!draw()) return null;
-} else if (b_tot === 5 && [4,5,6,7].includes(pt)) {
-  if (!draw()) return null;
-} else if (b_tot === 6 && [6, 7].includes(pt)) {
-if (!draw()) return null;
-}
-}
+  constructor(deck) { this.deck = deck; }
 
-const res = (p_tot === b_tot) ? '和' : ((p_tot > b_tot) ? '閒' : '莊');
-const used = d.slice(start, idx);
-if (no_swap) { return makeRoundInfo(start, used, res, false); }
-const [swap_res, same_len] = this._swap_result(start);
-const invalid_swap = (res === '和' && swap_res === '莊');
-const sensitive = ((swap_res !== null) && (swap_res !== res) && (swap_res !== '和') && (same_len === used.length) && !invalid_swap);
-return makeRoundInfo(start, used, res, sensitive);
-}
-_swap_result(start) {
-let d2 = [...this.deck];
-if (start + 1 >= d2.length) return [null, 0];
-[d2[start], d2[start + 1]] = [d2[start + 1], d2[start]];
-const sim2 = new Simulator(d2);
-const r2 = sim2.simulate_round(start, { no_swap: true });
-if (!r2) return [null, 0];
-return [r2.result, r2.cards.length];
+  simulate_round(start, { no_swap = false } = {}) {
+    const d = this.deck;
+    if (start + 3 >= d.length) return null;
+    const [P1, B1, P2, B2] = d.slice(start, start + 4);
+    let idx = start + 4;
+    let p_tot = (P1.point() + P2.point()) % 10;
+    let b_tot = (B1.point() + B2.point()) % 10;
+    let natural = (p_tot === 8 || p_tot === 9 || b_tot === 8 || b_tot === 9);
+    let p_cards = [P1, P2];
+    let b_cards = [B1, B2];
+    if (!natural) {
+      let p3 = null;
+      if (p_tot <= 5) {
+        if (idx >= d.length) return null;
+        p3 = d[idx]; p_cards.push(p3); idx++; p_tot = (p_tot + p3.point()) % 10;
+      }
+      if (p3 === null) {
+        if (b_tot <= 5) {
+          if (idx >= d.length) return null;
+          let b3 = d[idx]; b_cards.push(b3); idx++; b_tot = (b_tot + b3.point()) % 10;
+        }
+      } else {
+        const pt = p3.point();
+        const draw = () => {
+          if (idx >= d.length) return false;
+          let b3 = d[idx]; b_cards.push(b3); idx++; b_tot = (b_tot + b3.point()) % 10; return true;
+        };
+        if (b_tot <= 2) {
+          if (!draw()) return null;
+        } else if (b_tot === 3 && pt !== 8) {
+          if (!draw()) return null;
+        } else if (b_tot === 4 && [1,2,3,4,5,6].includes(pt)) {
+          if (!draw()) return null;
+        } else if (b_tot === 5 && [4,5,6,7].includes(pt)) {
+          if (!draw()) return null;
+        } else if (b_tot === 6 && [6, 7].includes(pt)) {
+          if (!draw()) return null;
+        }
+      }
+    }
+    const res = (p_tot === b_tot) ? '和' : ((p_tot > b_tot) ? '閒' : '莊');
+    const used = d.slice(start, idx);
+    if (no_swap) { return makeRoundInfo(start, used, res, false); }
+    const [swap_res, same_len] = this._swap_result(start);
+    const invalid_swap = (res === '和' && swap_res === '莊');
+    const sensitive = ((swap_res !== null) && (swap_res !== res) && (swap_res !== '和') && (same_len === used.length) && !invalid_swap);
+    return makeRoundInfo(start, used, res, sensitive);
+  }
 
+  _swap_result(start) {
+    let d2 = [...this.deck];
+    if (start + 1 >= d2.length) return [null, 0];
+    [d2[start], d2[start + 1]] = [d2[start + 1], d2[start]];
+    const sim2 = new Simulator(d2);
+    const r2 = sim2.simulate_round(start, { no_swap: true });
+    if (!r2) return [null, 0];
+    return [r2.result, r2.cards.length];
+  }
 }
 const WAA_Logic = (() => {
 const CONFIG = {
@@ -2062,6 +2064,7 @@ function exportRawDataToCSV() {
     link.click();
     document.body.removeChild(link);
 }
+
 
 
 
