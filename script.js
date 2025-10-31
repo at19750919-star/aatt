@@ -52,7 +52,7 @@ if (!draw()) return null;
 if (!draw()) return null;
 } else if (b_tot === 4 && [1,2,3,4,5,6].includes(pt)) {
   if (!draw()) return null;
-} else if (b_tot === 5 && [3,4,5,6].includes(pt)) {
+} else if (b_tot === 5 && [4,5,6,7].includes(pt)) {
   if (!draw()) return null;
 }
 } else if (b_tot === 6 && [5, 6].includes(pt)) {
@@ -794,7 +794,7 @@ if (sim_r) {
             if (b_tot <= 2) draw();
             else if (b_tot === 3 && pt !== 8) draw();
             else if (b_tot === 4 && [1,2,3,4,5,6].includes(pt)) draw();
-            else if (b_tot === 5 && [3,4,5,6].includes(pt)) draw();
+            else if (b_tot === 5 && [4,5,6,7].includes(pt)) draw();
             else if (b_tot === 6 && [5, 6].includes(pt)) draw();
         }
     }
@@ -2063,4 +2063,5 @@ function exportRawDataToCSV() {
     link.click();
     document.body.removeChild(link);
 }
+
 
