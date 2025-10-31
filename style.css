@@ -268,7 +268,7 @@ button{height:40px;padding:0 18px;border-radius:10px;border:1px solid #2a3342;ba
 .signal-card{font-weight:700} /* 功能：加粗訊號卡片的文字 */
 
 /* 範圍：紅心訊號格 */
-td.signal-card-H{color:#fff !important} /* 功能：以粉紅色凸顯紅心訊號 */
+td.signal-card-H{color:#ff0000 !important} /* 功能：以粉紅色凸顯紅心訊號 */
 
 /* 範圍：黑桃訊號格 */
 td.signal-card-S{color:#69c0ff !important} /* 功能：以藍色凸顯黑桃訊號 */
@@ -342,7 +342,7 @@ tr.highlight-second > td {
 
 /* 紅色背景，搭配一個淺色的邊框來區分儲存格 */
 .card-bg-red { 
-    background-color: #250202; /* 一個不會太刺眼的深紅色 */
+    background-color: #ffff00; /* 一個不會太刺眼的深紅色 */
     border-left: 1px solid #63333d;
 }
 
@@ -356,4 +356,5 @@ tr.highlight-second > td {
 td.card-cell:first-child {
     border-left: 1px solid #333;
 }
+
 
