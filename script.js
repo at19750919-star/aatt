@@ -58,7 +58,7 @@ if (!draw()) return null;
 if (!draw()) return null;
 }
 }
-}
+
 const res = (p_tot === b_tot) ? '和' : ((p_tot > b_tot) ? '閒' : '莊');
 const used = d.slice(start, idx);
 if (no_swap) { return makeRoundInfo(start, used, res, false); }
@@ -2062,6 +2062,7 @@ function exportRawDataToCSV() {
     link.click();
     document.body.removeChild(link);
 }
+
 
 
 
