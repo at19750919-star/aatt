@@ -1145,9 +1145,52 @@ function performRoundSwap(i, j) {
 }
 
 const SUIT_SYMBOL_TO_LETTER = {};
-const SIGNAL_SUIT_COLOR = {};
+const SIGNAL_SUIT_COLOR = {
+  S: '#69c0ff',
+  H: '#ff4d4f',
+  D: '#ffb74d',
+  C: '#73d13d',
+};
 const SUIT_DISPLAY_NAME = {};
 const $ = (id) => document.getElementById(id);
+
+function initUpdateHint() {
+  const hint = $('updateHint');
+  if (!hint) return;
+
+  const storageKey = 'waa.hideUpdateHint';
+  let canUseStorage = false;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const testKey = `${storageKey}.test`;
+      localStorage.setItem(testKey, '1');
+      localStorage.removeItem(testKey);
+      canUseStorage = true;
+    }
+  } catch (err) {
+    canUseStorage = false;
+  }
+
+  if (canUseStorage && localStorage.getItem(storageKey) === '1') {
+    hint.style.display = 'none';
+    return;
+  }
+
+  const dismissBtn = $('btnDismissHint');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', () => {
+      hint.style.display = 'none';
+      if (canUseStorage) {
+        try {
+          localStorage.setItem(storageKey, '1');
+        } catch (err) {
+          /* ignore storage errors */
+        }
+      }
+    });
+  }
+}
+
 function toast(message) {
 const node = $('toast');
 if (!node) return;
@@ -1789,6 +1832,7 @@ async function scanRounds() { /* stub */ }
 async function exportCombined() { /* stub */ }
 
 function bindControls() {
+  initUpdateHint();
   // --- 步驟 1: 綁定頁面上已存在的靜態按鈕 ---
   const btnGen = $('btnGen');
   if (btnGen) { btnGen.addEventListener('click', generateShoe); }
