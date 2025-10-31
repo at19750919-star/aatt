@@ -50,10 +50,11 @@ if (b_tot <= 2) {
 if (!draw()) return null;
 } else if (b_tot === 3 && pt !== 8) {
 if (!draw()) return null;
-} else if (b_tot === 4 && [1-6].includes(pt)) {
-if (!draw()) return null;
-} else if (b_tot === 5 && [3-6].includes(pt)) {
-if (!draw()) return null;
+} else if (b_tot === 4 && [1,2,3,4,5,6].includes(pt)) {
+  if (!draw()) return null;
+} else if (b_tot === 5 && [3,4,5,6].includes(pt)) {
+  if (!draw()) return null;
+}
 } else if (b_tot === 6 && [5, 6].includes(pt)) {
 if (!draw()) return null;
 }
@@ -792,8 +793,8 @@ if (sim_r) {
             const pt = p3.point();
             if (b_tot <= 2) draw();
             else if (b_tot === 3 && pt !== 8) draw();
-            else if (b_tot === 4 && [1-6].includes(pt)) draw();
-            else if (b_tot === 5 && [3-6].includes(pt)) draw();
+            else if (b_tot === 4 && [1,2,3,4,5,6].includes(pt)) draw();
+            else if (b_tot === 5 && [3,4,5,6].includes(pt)) draw();
             else if (b_tot === 6 && [5, 6].includes(pt)) draw();
         }
     }
@@ -2062,3 +2063,4 @@ function exportRawDataToCSV() {
     link.click();
     document.body.removeChild(link);
 }
+
