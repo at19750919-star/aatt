@@ -55,7 +55,7 @@
 html,body{height:100%} /* 功能：確保頁面高度填滿視窗 */
 
 /* 範圍：body */
-body{margin:0;background:var(--bg);color:var(--text);font:18px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,Arial} /* 功能：設定整體背景、字色與基本字體 */
+body{margin:0;background:var(--bg);color:var(--text);font:20px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,Arial} /* 功能：設定整體背景、字色與基本字體 */
 
 /* 範圍：主要內容容器 */
 .container{width:100vw;margin:0;padding:0} /* 讓主要內容隨螢幕寬度縮放 */
@@ -192,7 +192,38 @@ button{height:40px;padding:0 18px;border-radius:10px;border:1px solid #2a3342;ba
 
 /* 範圍：表格儲存格 */
 .table th,.table td{border-bottom:1px solid #ffffff12;padding:1px 1px;text-align:center;white-space:nowrap;font-size:18px} /* 功能：統一儲存格間距與底線 */
-.table th{padding-top:10px;padding-bottom:10px;} /* 只加大表頭高度 */
+.table td.card-cell,.table td.color-seq{font-size:24px} /* 左表：卡牌序列與第1-6張卡欄位放大 */
+/* 左表：表頭對應欄位一起放大（卡牌、1~6） */
+.table th:nth-child(3),
+.table th:nth-child(4),
+.table th:nth-child(5),
+.table th:nth-child(6),
+.table th:nth-child(7),
+.table th:nth-child(8),
+.table th:nth-child(9){font-size:24px}
+/* 左表：卡牌與 1~6 欄加寬，其餘維持自動（更窄） */
+.table th:nth-child(3), .table td:nth-child(3) { min-width: 88px; width: 88px; }
+.table th:nth-child(4), .table td:nth-child(4) { min-width: 56px; width: 56px; }
+.table th:nth-child(5), .table td:nth-child(5) { min-width: 56px; width: 56px; }
+.table th:nth-child(6), .table td:nth-child(6) { min-width: 56px; width: 56px; }
+.table th:nth-child(7), .table td:nth-child(7) { min-width: 56px; width: 56px; }
+.table th:nth-child(8), .table td:nth-child(8) { min-width: 56px; width: 56px; }
+.table th:nth-child(9), .table td:nth-child(9) { min-width: 56px; width: 56px; }
+/* 左表：其他欄變窄（數字與簡短文字）*/
+.table th:nth-child(1), .table td:nth-child(1) { width: 36px; max-width:36px; }
+.table th:nth-child(2), .table td:nth-child(2) { width: 32px; max-width:32px; }
+.table th:nth-child(10), .table td:nth-child(10) { width: 48px; max-width:48px; }
+.table th:nth-child(11), .table td:nth-child(11) { width: 48px; max-width:48px; }
+.table th:nth-child(14), .table td:nth-child(14) { width: 40px; max-width:40px; }
+.table th:nth-child(15), .table td:nth-child(15) { width: 40px; max-width:40px; }
+/* 左表：長字串欄（閒家牌/莊家牌）限制寬度並省略號 */
+.table th:nth-child(12), .table td:nth-child(12),
+.table th:nth-child(13), .table td:nth-child(13) {
+  width: 120px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* 左表：卡牌欄位調整列高，近似正方比例 */
+.table td.card-cell, .table td.color-seq { height: 36px; line-height: 36px; padding: 0; }
+.table th{padding-top:5px;padding-bottom:5px;} /* 只加大表頭高度 */
 
 /* 範圍：表格表頭 */
 .table th{position:sticky;top:0;background:#101624;z-index:1} /* 功能：固定表頭於滾動時仍可見 */
@@ -204,19 +235,35 @@ button{height:40px;padding:0 18px;border-radius:10px;border:1px solid #2a3342;ba
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,"Ubuntu Mono",Consolas,monospace} /* 功能：使用等寬字體保持數值對齊 */
 
 /* 範圍：牌靴格線容器 */
-.grid-preview{display:grid;grid-template-columns:repeat(16,1fr);gap:0;border:1px solid #ffffff12;border-radius:12px;overflow:hidden;margin:0;font-size:32px} /* 功能：建立 16 欄的牌靴展示並限制外框，字體加大 */
+.grid-preview{display:grid;grid-template-columns:repeat(15,1fr);gap:0;border:1px solid #ffffff12;border-radius:12px;overflow:hidden;margin:0;font-size:32px} /* 功能：建立 15 欄的牌靴展示並限制外框，字體加大 */
+/* 只縮小右側預覽字級（不影響彈窗） */
+#gridPreview.grid-preview{font-size:22px}
+
+/* 警示/日誌面板 */
+.log-panel{margin-top:8px;padding:8px;border:1px solid #2a3342;border-radius:8px;background:#0f1520;max-height:200px;overflow:auto;font-size:14px;color:#ffb65b}
+.log-panel .log-line{padding:2px 0;border-bottom:1px dashed #24324a}
+.log-panel .log-line:last-child{border-bottom:none}
+.log-panel .log-title{font-weight:700;margin-bottom:6px;color:#ffd773}
+.warn-grid{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;white-space:nowrap}
+.warn-chip{display:inline-flex;align-items:center;justify-content:center;padding:4px 8px;border:1px solid #3a4a62;border-radius:6px;background:#152032;color:#ffd773;font-weight:700;flex:0 0 auto}
 
 /* 範圍：牌靴格子 */
-.cell{display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;background:#0f1a28;border:1px solid #ffffff0d;font-weight:600;color:#d8e6ff} /* 功能：控制每張牌格的比例、配色與置中 */
+.cell{display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;background:#0e1420;border:1px solid #ffffff0d;font-weight:600;color:var(--text)} /* 功能：控制每張牌格的比例、配色與置中（改為與左表一致） */
 
 /* 範圍：紅色訊號格 */
-.cell.card-red{background:#2d1b22;color:#ffd6dc} /* 功能：凸顯紅色訊號的背景與字色 */
+.cell.card-red{background-color:#676712;border-left:1px solid #63333d;color:var(--text)} /* 功能：與左表相同的卡片底色（紅） */
 
 /* 範圍：藍色訊號格 */
-.cell.card-blue{background:#162437;color:#d7e9ff} /* 功能：凸顯藍色訊號的背景與字色 */
+.cell.card-blue{background-color:#041337;border-left:1px solid #2a4075;color:var(--text)} /* 功能：與左表相同的卡片底色（藍） */
 
 /* 範圍：訊號匹配格 */
-.cell.signal-match{box-shadow:inset 0 0 0 2px #ffd591} /* 功能：以內框標示符合訊號花色的格子 */
+.cell.signal-match{box-shadow:none;color:#ff4d4f} /* 功能：移除黃框，改以紅色文字標示訊號 */
+/* T_idx 單一外框：依邊界加粗，內部細線 */
+.cell.tbox{box-shadow:none}
+.cell.tbox-left{border-left:3px solid #ff4d4f}
+.cell.tbox-right{border-right:3px solid #ff4d4f}
+.cell.tbox-top{border-top:3px solid #ff4d4f}
+.cell.tbox-bottom{border-bottom:3px solid #ff4d4f}
 
 /* 範圍：花色統計格 */
 .stats {
@@ -310,7 +357,7 @@ td.signal-card-C{color:#73d13d !important} /* 功能：以綠色凸顯梅花訊�
 .modal .board{padding:12px} /* 功能：提供預覽主體的內距 */
 
 /* 範圍：模態內牌靴網格 */
-.modal .grid-preview{grid-template-columns:repeat(16,1fr)} /* 功能：在模態中設定 16 欄牌靴 */
+.modal .grid-preview{grid-template-columns:repeat(15,1fr)} /* 功能：在模態中設定 15 欄牌靴 */
 
 /* 範圍：列印輸出 */
 @media print{

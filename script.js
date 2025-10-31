@@ -589,8 +589,13 @@ function distribute_signals_evenly(final_rounds, signal_suit, locked_ids) {
     );
 
     if (remaining_illegals.length > 0) {
-        console.warn(`[驗證警告] 仍有 ${remaining_illegals.length} 張訊號牌殘留在非 S 局，原因可能是點數不匹配或已被鎖定。`);
-        remaining_illegals.forEach(c => console.log(`  - 殘留牌: ${c.short()} 位於 #${c._round_index+1} 局`));
+        const hdr = `[驗證警告] 仍有 ${remaining_illegals.length} 張訊號牌殘留在非 S 局，原因可能是點數不匹配或已被鎖定。`;
+        console.warn(hdr);
+        remaining_illegals.forEach(c => {
+          const line = `- 殘留牌: ${c.short()} 位於 #${c._round_index+1} 局`;
+          console.log(`  ${line}`);
+          pushSignal(line);
+        });
     } else {
         console.log('[驗證成功] 所有非 S 局均已無訊號牌。');
     }
@@ -884,6 +889,32 @@ STATE.edit = { mode: 'none', first: null, target: null, armed: false };
 STATE.cutSummary = null;
 STATE.didAutoColor = false;
 STATE.previewRounds = [];
+STATE.warnings = [];
+STATE.warnType = null; // 'signal' | 'swap'
+function renderWarningsPanel() {
+  const box = document.getElementById('warnings');
+  if (!box) return;
+  const list = (STATE.warnType
+    ? (STATE.warnings || []).filter(w => w && w.type === STATE.warnType)
+    : (STATE.warnings || []));
+  if (list.length === 0) {
+    box.innerHTML = '';
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = '';
+  box.innerHTML = list.map(w => `<div class="log-line">${w.msg}</div>`).join('');
+}
+function pushWarning(type, msg) {
+  if (!STATE.warnings) STATE.warnings = [];
+  STATE.warnings.push({ type, msg });
+  renderWarningsPanel();
+}
+function clearWarnings(type) {
+  if (!type) { STATE.warnings = []; renderWarningsPanel(); return; }
+  STATE.warnings = (STATE.warnings || []).filter(w => w && w.type !== type);
+  renderWarningsPanel();
+}
 function snapshotPreviewRounds() {
   if (!Array.isArray(INTERNAL_STATE.rounds)) return [];
   return INTERNAL_STATE.rounds.map((round) => {
@@ -1033,7 +1064,8 @@ function* sourceCandidates(needColor, current_ridx, current_pidx) { // 增加了
           }
 
           if (!best) {
-              console.log(`%c【日誌 #${ridx+1}】失敗於位置 ${p+1}：未找到任何安全且可行的交換方案。`, 'color: red; font-weight: bold;');
+              const failMsg = `【日誌 #${ridx+1}】失敗於位置 ${p+1}：未找到任何安全且可行的交換方案。`;
+              console.log(`%c${failMsg}`, 'color: red; font-weight: bold;');
               return false;
           }
 
@@ -1101,6 +1133,28 @@ function* sourceCandidates(needColor, current_ridx, current_pidx) { // 增加了
   STATE.didAutoColor = true;
   updateMainTable();
   renderSuits(_suit_counts(INTERNAL_STATE.rounds, INTERNAL_STATE.tail));
+
+  // 11) 最終摘要：只顯示目前仍不達標的 S 局（避免中途失敗但最終成功的雜訊）
+  try {
+    const sSetFinal = new Set(WAA_Logic.helpers.compute_sidx_new(INTERNAL_STATE.rounds));
+    const failures = [];
+    for (let i = 0; i < INTERNAL_STATE.rounds.length; i++) {
+      if (!sSetFinal.has(i)) continue;
+      if ((INTERNAL_STATE.rounds[i].cards || []).filter(c => c && c.suit === '♥').length < 1) {
+        failures.push(i + 1);
+      }
+    }
+    STATE.warnType = 'swap';
+    clearWarnings('swap');
+    if (failures.length > 0) {
+      pushWarning('swap', `【卡色警訊】仍有 ${failures.length} 個 S 局未包含訊號牌。`);
+      failures.forEach(n => pushWarning('swap', `- 局 #${n} 未達成`));
+    } else {
+      // 若都合格，清空卡色類警訊顯示
+      clearWarnings('swap');
+      renderWarningsPanel();
+    }
+  } catch (e) { /* ignore */ }
 };
 
 
@@ -1300,7 +1354,18 @@ function renderRounds(rounds) {
     const winnerClass = result === 'Banker' || result === '\u838a' || result === 'B' ? 'win-bank' : result === 'Player' || result === '\u9592' || result === 'P' ? 'win-player' : result === 'Tie' || result === '\u548c' || result === 'T' ? 'win-tie' : '';
     
     const color_seq = round.color_seq || '';
-    const colorHtml = color_seq ? color_seq.split('').map(ch => (ch === 'R' ? '<span class="color-r">R</span>' : (ch === 'B' ? '<span class="color-b">B</span>' : `<span>${ch}</span>`))).join('') : '';
+    // 左表「卡牌」欄：將 R 顯示為 X（紅色），B 顯示為 O（藍色）
+    const colorHtml = color_seq
+      ? color_seq.split('')
+          .map(ch => (
+            ch === 'R'
+              ? '<span class="color-r">X</span>'
+              : (ch === 'B'
+                ? '<span class="color-b">O</span>'
+                : `<span>${ch}</span>`)
+          ))
+          .join('')
+      : '';
 
     const tieLetter = ($('tieSuit') && $('tieSuit').value) || '';
     const nextRes = rounds[index + 1]?.result || rounds[index + 1]?.winner || '';
@@ -1410,6 +1475,23 @@ function flattenRoundColorSequence(rounds) { /* stub */ }
 function buildDeckGrid(cards, signal, rounds = STATE.rounds) {
     if (!Array.isArray(cards) || cards.length === 0) return [];
     const signalLetter = _suit_letter(signal);
+    // 建立 T_idx（和局訊號）的牌位集合，來源以 INTERNAL_STATE.rounds 為準
+    const tIdxPositions = new Set();
+    try {
+        const srcRounds = Array.isArray(INTERNAL_STATE.rounds) ? INTERNAL_STATE.rounds : [];
+        let cursor = 0;
+        for (let i = 0; i < srcRounds.length; i++) {
+            const r = srcRounds[i];
+            const len = Array.isArray(r.cards) ? r.cards.length : 0;
+            const nextRes = srcRounds[i + 1]?.result;
+            const isTie = nextRes && ['和', 'Tie', 'T'].includes(String(nextRes));
+            const seg = r.segment_label ?? r.segment ?? '';
+            if (seg === 'A' && isTie) {
+                for (let k = 0; k < len; k++) tIdxPositions.add(cursor + k);
+            }
+            cursor += len;
+        }
+    } catch (e) { /* noop */ }
     const segmentByIndex = new Map();
     if (Array.isArray(rounds)) {
         let cursor = 0;
@@ -1423,6 +1505,7 @@ function buildDeckGrid(cards, signal, rounds = STATE.rounds) {
             cursor += len;
         });
     }
+    const COLS = 15; // 預覽固定欄數
     return (cards || []).map((card, idx) => {
         const label = cardLabel(card);
         const suit = suitLetterFromLabel(label);
@@ -1430,6 +1513,19 @@ function buildDeckGrid(cards, signal, rounds = STATE.rounds) {
         const classes = ['cell'];
         if (signalLetter && suit === signalLetter) {
             classes.push('signal-match');
+        }
+        if (tIdxPositions.has(idx)) {
+            // 為了只畫一個外框，依據鄰接關係決定四邊是否加粗
+            classes.push('tbox');
+            const col = idx % COLS;
+            const hasLeft = (col > 0) && tIdxPositions.has(idx - 1);
+            const hasRight = (col < COLS - 1) && tIdxPositions.has(idx + 1);
+            const hasTop = (idx - COLS >= 0) && tIdxPositions.has(idx - COLS);
+            const hasBottom = tIdxPositions.has(idx + COLS);
+            if (!hasLeft) classes.push('tbox-left');
+            if (!hasRight) classes.push('tbox-right');
+            if (!hasTop) classes.push('tbox-top');
+            if (!hasBottom) classes.push('tbox-bottom');
         }
         let colorCode = card && typeof card === 'object' ? card.color : null;
         if (!colorCode) {
@@ -1449,7 +1545,7 @@ function buildDeckGrid(cards, signal, rounds = STATE.rounds) {
         } else if (seg === 'A') {
             classes.push('segment-a');
         }
-        return { value: display, className: classes.join(' ') };
+        return { value: display, className: classes.join(' '), suit };
     });
 }
 function renderPreview(cards) {
@@ -1465,7 +1561,12 @@ function renderPreview(cards) {
         ? STATE.previewRounds
         : STATE.rounds;
     const gridData = buildDeckGrid(cards, signalValue, previewRounds);
-    container.innerHTML = gridData.map(cell => `<div class="${cell.className}">${cell.value ?? ''}</div>`).join('');
+    const COLS = 15;
+    const ROWS = 28;
+    const MAX = COLS * ROWS; // 420 cells
+    const padded = gridData.slice(0, MAX);
+    while (padded.length < MAX) padded.push({ className: 'cell', value: '' });
+    container.innerHTML = padded.map(cell => `<div class="${cell.className}">${cell.value ?? ''}</div>`).join('');
 }
 function openPreviewWindow(immediatePrint = false) {
     if (!STATE.previewCards || STATE.previewCards.length === 0) {
@@ -1482,7 +1583,12 @@ function openPreviewWindow(immediatePrint = false) {
         toast('No preview data available');
         return;
     }
-    const gridHtml = gridData.map((cell) => `<div class="${cell.className}">${cell.value ?? ''}</div>`).join('');
+    const COLS = 15;
+    const ROWS = 28;
+    const MAX = COLS * ROWS; // 420 cells
+    const padded = gridData.slice(0, MAX);
+    while (padded.length < MAX) padded.push({ className: 'cell', value: '' });
+    const gridHtml = padded.map((cell) => `<div class="${cell.className}">${cell.value ?? ''}</div>`).join('');
     const html = `<!doctype html>
 <html lang="zh-Hant">
   <head>
@@ -1494,11 +1600,17 @@ function openPreviewWindow(immediatePrint = false) {
       .toolbar{display:flex;gap:12px;margin-bottom:16px;}
       .toolbar button{padding:8px 16px;border:1px solid #24324a;border-radius:6px;background:#1d4ed8;color:#f3f8ff;cursor:pointer;}
       .toolbar button.secondary{background: #24324a;}
-      .grid-preview{display:grid;grid-template-columns:repeat(16,1fr);gap:0;border:1px solid #ffffff12;border-radius:12px;overflow:hidden;}
-      .cell{display:flex;align-items:center;justify-content:center;height:40px;font-size:22px;font-weight:600;border:1px solid #1d2840;}
-      .cell.card-red{background: #2d1b22;color: #ffd6dc;}
-      .cell.card-blue{background: #162437;color #d7e9ff;}
-      .cell.signal-match{box-shadow:inset 0 0 0 2px #ffd591;}
+      .grid-preview{display:grid;grid-template-columns:repeat(15,1fr);gap:0;border:1px solid #ffffff12;border-radius:12px;overflow:hidden;}
+      .cell{display:flex;align-items:center;justify-content:center;height:40px;font-size:22px;font-weight:600;border:1px solid #1d2840;background:#0e1420;color:#e6eef8;}
+      .cell.card-red{background-color:#676712;border-left:1px solid #63333d;color:#e6eef8;}
+      .cell.card-blue{background-color:#041337;border-left:1px solid #2a4075;color:#e6eef8;}
+      .cell.signal-match{box-shadow:none;color:#ff4d4f;}
+      /* T_idx 單一外框：依邊界加粗，內部細線 */
+      .cell.tbox{box-shadow:none}
+      .cell.tbox-left{border-left:3px solid #ff4d4f}
+      .cell.tbox-right{border-right:3px solid #ff4d4f}
+      .cell.tbox-top{border-top:3px solid #ff4d4f}
+      .cell.tbox-bottom{border-bottom:3px solid #ff4d4f}
       @media print {
     body { padding:12px; background: #fff; color: #222; }
     .toolbar { display:none; }
@@ -1506,7 +1618,11 @@ function openPreviewWindow(immediatePrint = false) {
     .cell { border:1px solid #000; color: #000; background: #fff; }
     .cell.card-red { background: #00ffff; color: #000; }      /* 鮮紅色背景，白字 */
     .cell.card-blue { background: #ffff00; color: #000; }     /* 鮮藍色背景，白字 */
-    .cell.signal-match { box-shadow:inset 0 0 0 3px #ff0000; color: #ff0000 !important; } /* 橘色粗框，紅字 */
+    .cell.signal-match { box-shadow:none; color: #ff0000 !important; } /* 移除框線，僅紅字 */
+    .cell.tbox-left{border-left:3px solid #ff4d4f}
+    .cell.tbox-right{border-right:3px solid #ff4d4f}
+    .cell.tbox-top{border-top:3px solid #ff4d4f}
+    .cell.tbox-bottom{border-bottom:3px solid #ff4d4f}
 }
     </style>
   </head>
@@ -1641,6 +1757,9 @@ async function generateShoe() {
   if (btn) btn.disabled = true;
   if (spinner) spinner.style.display = 'inline-block';
   try {
+    // 清空兩類警示：創建時只會渲染花色訊號
+    clearSignal();
+    clearSwap();
     updateStatus('Starting...');
     const num_shoes = Number($('numShoes').value);
     const signal_suit = $('signalSuit').value;
@@ -1809,8 +1928,10 @@ function bindControls() {
   
   const btnPreview = $('btnPreview');
   const btnPrint = $('btnPrint');
+  const btnExportPreview = $('btnExportPreview');
   if (btnPreview) { btnPreview.addEventListener('click', () => openPreviewWindow(false)); }
   if (btnPrint) { btnPrint.addEventListener('click', () => openPreviewWindow(true)); }
+  if (btnExportPreview) { btnExportPreview.addEventListener('click', exportPreviewToXLSX); }
 
 
   // --- 步驟 2: 動態創建編輯工具列 ---
@@ -2065,6 +2186,156 @@ function exportRawDataToCSV() {
     document.body.removeChild(link);
 }
 
+// 將右側預覽格（15x28）輸出為可用 Excel 開啟的 CSV
+function exportPreviewToCSV() {
+    if (!STATE.previewCards || STATE.previewCards.length === 0) {
+        toast('沒有預覽資料可導出');
+        return;
+    }
+    const signalSelect = $('signalSuit');
+    const signalValue = signalSelect ? signalSelect.value : null;
+    const previewRounds = (Array.isArray(STATE.previewRounds) && STATE.previewRounds.length)
+        ? STATE.previewRounds
+        : STATE.rounds;
+    const gridData = buildDeckGrid(STATE.previewCards, signalValue, previewRounds);
+    const COLS = 15;
+    const ROWS = 28;
+    const MAX = COLS * ROWS;
+    const padded = gridData.slice(0, MAX);
+    while (padded.length < MAX) padded.push({ value: '', className: 'cell' });
+
+    const rows = [];
+    for (let r = 0; r < ROWS; r++) {
+        const start = r * COLS;
+        const cells = padded.slice(start, start + COLS).map(cell => {
+            const v = cell && typeof cell.value !== 'undefined' && cell.value !== null ? String(cell.value) : '';
+            // 逗號用分號替代，避免破壞 CSV 欄位
+            return v.replace(/,/g, ';');
+        });
+        rows.push(cells.join(','));
+    }
+    const content = rows.join('\n');
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), content], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'br_preview_grid.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// 將右側預覽格（15x28）輸出為 .xlsx，並根據格子類別套用文字顏色與框線
+async function exportPreviewToXLSX() {
+    try {
+        if (!STATE.previewCards || STATE.previewCards.length === 0) {
+            toast('沒有預覽資料可導出');
+            return;
+        }
+        if (typeof ExcelJS === 'undefined' || !ExcelJS.Workbook) {
+            // 無法載入 ExcelJS 時，退回 CSV
+            console.warn('ExcelJS not available, falling back to CSV');
+            exportPreviewToCSV();
+            return;
+        }
+        const signalSelect = $('signalSuit');
+        const signalValue = signalSelect ? signalSelect.value : null;
+        const previewRounds = (Array.isArray(STATE.previewRounds) && STATE.previewRounds.length)
+            ? STATE.previewRounds
+            : STATE.rounds;
+        const gridData = buildDeckGrid(STATE.previewCards, signalValue, previewRounds);
+        const COLS = 15;
+        const ROWS = 28;
+        const MAX = COLS * ROWS;
+        const padded = gridData.slice(0, MAX);
+        while (padded.length < MAX) padded.push({ value: '', className: 'cell' });
+
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Preview');
+        // 放大整體尺寸，目標約 1.5 張 A4 高度
+        // 讓字幾乎填滿格子：提高列高
+        ws.properties.defaultRowHeight = 36;
+
+        // A4 設定並自動縮放至單頁
+        // 取消「寬度壓成 1 頁」的限制，改用固定縮放比例
+        ws.pageSetup = {
+          paperSize: 9, // A4
+          orientation: 'portrait',
+          fitToPage: false,
+          scale: 170,                // 放大比例（可調 150~200）
+          horizontalCentered: true,
+          verticalCentered: true,
+          margins: { left: 0.1, right: 0.1, top: 0.12, bottom: 0.12, header: 0.1, footer: 0.1 }
+        };
+
+        // 每 5 欄插入一個窄的空白間隔欄
+        const GROUP = 5;
+        const SEP_COUNT = Math.floor((COLS - 1) / GROUP); // 15 -> 2
+        const TOTAL_COLS = COLS + SEP_COUNT; // 17
+        const isSpacerCol = (sc) => (sc === 6 || sc === 12); // 針對 15 欄固定位置
+        // 縮小欄寬，讓 Excel 自動縮放變大：資料欄越窄 → 字越大
+        for (let c = 1; c <= TOTAL_COLS; c++) {
+          ws.getColumn(c).width = isSpacerCol(c) ? 0.8 : 4.0; // 分隔欄 0.8、資料欄 4.0（單字更貼邊）
+        }
+
+        const borderThin = { style: 'thin', color: { argb: 'FF333333' } };
+        const borderBold = { style: 'medium', color: { argb: 'FFFF4D4F' } }; // 紅色外框
+
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                const idx = r * COLS + c;
+                const cellInfo = padded[idx] || { value: '', className: 'cell', suit: '' };
+                const v = (cellInfo.value === 0 ? '0' : (cellInfo.value ?? ''));
+                // 寫入到包含間隔欄後的實際欄位
+                const sheetCol = (c + 1) + Math.floor(c / GROUP);
+                const cell = ws.getCell(r + 1, sheetCol);
+                cell.value = v;
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+                // 文字顏色：紅心(H)紅字，其它黑字
+                const suit = (cellInfo.suit || '').toUpperCase();
+                const fontColor = suit === 'H' ? 'FFFF0000' : 'FF000000';
+                // 放大字體，幾乎填滿格子
+                cell.font = { name: 'Calibri', size: 24, bold: true, color: { argb: fontColor } };
+                // 盡量減少視覺邊距（不縮排、不換行、置中）
+                cell.alignment = { horizontal: 'center', vertical: 'middle', indent: 0, wrapText: false };
+
+                // 背景：R 卡淺黃色、B 卡淺藍色（依 class 判斷）
+                const cls = String(cellInfo.className || '');
+                if (cls.includes('card-red')) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }; // 淺黃
+                } else if (cls.includes('card-blue')) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0080FF' } }; // 淺藍
+                }
+
+                // 邊框：基本細框；若為 T_idx 外框邊界則加粗
+                const edges = {
+                  top: cls.includes('tbox-top') ? borderBold : borderThin,
+                  left: cls.includes('tbox-left') ? borderBold : borderThin,
+                  right: cls.includes('tbox-right') ? borderBold : borderThin,
+                  bottom: cls.includes('tbox-bottom') ? borderBold : borderThin,
+                };
+                cell.border = edges;
+            }
+        }
+
+        const buf = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = 'br_preview_grid.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+        console.error('Export XLSX failed:', err);
+        toast('Excel 匯出失敗，已改用 CSV');
+        exportPreviewToCSV();
+    }
+}
 
 
 
@@ -2072,3 +2343,41 @@ function exportRawDataToCSV() {
 
 
 
+
+// 新：分離兩種警示類型供不同面板使用
+STATE.warnSignal = [];
+STATE.warnSwap = [];
+function renderWarningBlocks() {
+  const sBox = document.getElementById('warningsSignal');
+  const sBody = document.getElementById('warningsSignalBody');
+  const xBox = document.getElementById('warningsSwap');
+  const xBody = document.getElementById('warningsSwapBody');
+  if (sBox && sBody) {
+    if (!STATE.warnSignal || STATE.warnSignal.length === 0) {
+      sBox.style.display = 'none'; sBody.innerHTML = '';
+    } else {
+      sBox.style.display = '';
+      // 只呈現殘留牌列表，並做成多行橫向的區塊
+      const items = STATE.warnSignal
+        .filter(m => /殘留牌/.test(m))
+        .map(m => {
+          const m2 = m.replace(/^-\s*/, '').replace(/^殘留牌:\s*/, '');
+          // 例："5♥ 位於 #1 局" → "5♥ #1"
+          const t = m2.replace(/\s*位於\s*#(\d+)\s*局.*/, ' #$1');
+          return `<div class=\"warn-chip\">${t}</div>`;
+        }).join('');
+      sBody.innerHTML = `<div class=\"warn-grid\">${items}</div>`;
+    }
+  }
+  if (xBox && xBody) {
+    if (!STATE.warnSwap || STATE.warnSwap.length === 0) {
+      xBox.style.display = 'none'; xBody.innerHTML = '';
+    } else {
+      xBox.style.display = ''; xBody.innerHTML = STATE.warnSwap.map(m => `<div class=\"log-line\">${m}</div>`).join('');
+    }
+  }
+}
+function pushSignal(msg){ (STATE.warnSignal ||= []).push(msg); renderWarningBlocks(); }
+function pushSwap(msg){ (STATE.warnSwap ||= []).push(msg); renderWarningBlocks(); }
+function clearSignal(){ STATE.warnSignal = []; renderWarningBlocks(); }
+function clearSwap(){ STATE.warnSwap = []; renderWarningBlocks(); }

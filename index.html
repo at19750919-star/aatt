@@ -1,11 +1,12 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WAA 介面</title>
-  <link rel="stylesheet" href="style.css">
-</head>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WAA 介面</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+  </head>
 <body>
   <header class="header">
     <div class="container"></div>
@@ -59,10 +60,16 @@
                 <div>
                   <button class="primary" id="btnExportCombined">導出</button>
                   <button id="btnPreview">預覽</button>
+                  <button id="btnExportPreview">Excel</button>
                 </div>
               </div>
               <div id="cutSummary" class="cut-summary"></div>
               <span class="small" id="scanInfo"></span>
+            </div>
+            <!-- 花色訊號警示移到這裡顯示 -->
+            <div class="log-panel" id="warningsSignal" style="display:none;margin-top:10px">
+              <div class="log-title">花色訊號</div>
+              <div class="log-body" id="warningsSignalBody"></div>
             </div>
         </div>
       </section>
@@ -72,12 +79,18 @@
         <div class="head"><h3>統計</h3><div class="small">花色+牌面統計</div></div>
         <div class="body">
           <div class="stats" id="suits" style="max-width:100vw;"></div>
+          <div>
+            <div class="log-panel" id="warningsSwap" style="display:none">
+              <div class="log-title">卡色交換警示</div>
+              <div class="log-body" id="warningsSwapBody"></div>
+            </div>
+          </div>
         </div>
       </section>
     </div>
 
     <!-- 左右兩表：左細、右預覽 -->
-    <div class="grid" id="tables" style="grid-template-columns:1fr 1fr;display:none">
+    <div class="grid" id="tables" style="grid-template-columns:3fr 2fr;display:none">
       <section class="card" style="margin:0">
         <div class="head"><h3>詳細表格</h3><div class="small">生成後顯示結果</div></div>
         <div class="body">
