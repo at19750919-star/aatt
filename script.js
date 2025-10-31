@@ -54,7 +54,6 @@ if (!draw()) return null;
   if (!draw()) return null;
 } else if (b_tot === 5 && [4,5,6,7].includes(pt)) {
   if (!draw()) return null;
-}
 } else if (b_tot === 6 && [6, 7].includes(pt)) {
 if (!draw()) return null;
 }
@@ -2063,6 +2062,7 @@ function exportRawDataToCSV() {
     link.click();
     document.body.removeChild(link);
 }
+
 
 
 
