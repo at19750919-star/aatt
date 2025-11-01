@@ -2052,6 +2052,13 @@ function bindControls() {
   if (btnPreview) { btnPreview.addEventListener('click', () => openPreviewWindow(false)); }
   if (btnPrint) { btnPrint.addEventListener('click', () => openPreviewWindow(true)); }
   if (btnExportPreview) { btnExportPreview.addEventListener('click', exportPreviewToXLSX); }
+  const btnOpenAssistant = $('btnOpenAssistant');
+if (btnOpenAssistant) {
+    btnOpenAssistant.addEventListener('click', () => {
+        window.open('assistant.html', '_blank');
+    });
+}
+
 
 
   // --- 步驟 2: 動態創建編輯工具列 ---

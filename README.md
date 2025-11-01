@@ -81,3 +81,8 @@
 
 ---
 有需要我可以再補上「鍵盤快捷鍵」功能（例如快速觸發創建/卡色/預覽），或幫你自動化 Pages 發佈（GitHub Actions）。
+
+
+git clone https://github.com/at19750919-star/aatt.git
+cd aatt
+code .
