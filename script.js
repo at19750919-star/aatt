@@ -449,9 +449,43 @@ function apply_combined_rules_internal(final_rounds, { signal_suit, tie_suit, la
         throw e;
     }
 
-    // 步驟 2: 處理S局訊號
+    // 步驟 2: 處理S局訊號（可選規則）
     try {
-        const signal_locked = distribute_signals_evenly(final_rounds, signal_suit, locked_ids);
+        let mode = 'suit';
+        try {
+          const sel = document.getElementById('signalRule');
+          if (sel && sel.value) mode = sel.value;
+        } catch (e) { /* ignore */ }
+        if (typeof STATE !== 'undefined' && STATE.signalMode) mode = STATE.signalMode;
+
+        let signal_locked;
+        if (mode === 'red0' && typeof window.distribute_signals_evenly_redzero === 'function') {
+            // 先檢查 donors 是否足夠（紅0 數量 >= S 局數量），不足則丟錯重試
+            const s_indices_chk = new Set(compute_sidx_for_segment(final_rounds, 'A'));
+            const need = s_indices_chk.size;
+            const countRed0 = final_rounds.flatMap(r=>r.cards||[])
+              .reduce((t,c)=>{ const r=String(c.rank||'').toUpperCase(); const s=c.suit; const is0=(r==='10'||r==='J'||r==='Q'||r==='K'); const red=(s==='♥'||s==='♦'); return t + (is0&&red?1:0); },0);
+            if (countRed0 < need) {
+              const msg = `Red0 donors not enough: need ${need}, have ${countRed0}`;
+              log_attempt_failure(msg);
+              throw new Error(msg);
+            }
+            signal_locked = window.distribute_signals_evenly_redzero(final_rounds, locked_ids);
+        } else if (mode === 'zero0' && typeof window.distribute_signals_evenly_zeroany === 'function') {
+            // 0 點 donor 足量檢查
+            const s_indices_chk = new Set(compute_sidx_for_segment(final_rounds, 'A'));
+            const need = s_indices_chk.size;
+            const countZero = final_rounds.flatMap(r=>r.cards||[])
+              .reduce((t,c)=>{ const r=String(c.rank||'').toUpperCase(); return t + ((r==='10'||r==='J'||r==='Q'||r==='K')?1:0); },0);
+            if (countZero < need) {
+              const msg = `Zero donors not enough: need ${need}, have ${countZero}`;
+              log_attempt_failure(msg);
+              throw new Error(msg);
+            }
+            signal_locked = window.distribute_signals_evenly_zeroany(final_rounds, locked_ids);
+        } else {
+            signal_locked = distribute_signals_evenly(final_rounds, signal_suit, locked_ids);
+        }
         locked_ids = new Set([...locked_ids, ...signal_locked]);
     } catch (e) {
         log_attempt_failure(`Even Distribution failed: ${e.message}`);
@@ -777,6 +811,7 @@ let banker_point = 0;
 let player_point = 0;
 let player_cards_labels = [];
 let banker_cards_labels = [];
+ let result_text = r.result || "";
 try {
 if (seq_cards.length >= 4) {
 const sim = new Simulator(seq_cards.map((c,i) => c.clone(i)));
@@ -808,15 +843,21 @@ if (sim_r) {
     player_point = p_tot;
     player_cards_labels = player_cards.map(c => c.short());
     banker_cards_labels = banker_cards.map(c => c.short());
+    // 用模擬結果覆蓋顯示的結果（莊/閒/和）
+    result_text = sim_r.result || result_text;
 } else {
 const bp_pp = WAA_Logic.helpers._seq_points(seq_cards) || [null, null];
 banker_point = bp_pp;
 player_point = bp_pp[11];
+const rr = (WAA_Logic.helpers._seq_result && WAA_Logic.helpers._seq_result(seq_cards)) || null;
+if (rr) result_text = rr;
 }
 } else {
 const bp_pp = WAA_Logic.helpers._seq_points(seq_cards) || [null, null];
 banker_point = bp_pp;
 player_point = bp_pp[11];
+const rr = (WAA_Logic.helpers._seq_result && WAA_Logic.helpers._seq_result(seq_cards)) || null;
+if (rr) result_text = rr;
 }
 } catch (e) {
 console.error("Error serializing round points", e, r);
@@ -832,7 +873,7 @@ return (letter === 'H' || letter === 'D') ? 'R' : 'B';
 };
 const color_seq = seq_cards.map(rb).join('');
 out.push({
-result: r.result || "",
+result: result_text || "",
 cards: cards,
 player_point: player_point ?? 0,
 banker_point: banker_point ?? 0,
@@ -845,8 +886,15 @@ return out;
 }
 function _serialize_rounds_with_flags(rounds, tail) {
 const ordered = [...rounds].sort((a, b) => a.start_index - b.start_index);
+// 重要：用當前卡牌重新計算每局結果，避免使用舊的 r.result
 const all_rounds_views = ordered.map(r => {
-  const view = WAA_Logic.helpers.RoundView(r.cards, r.result);
+  let computed = null;
+  try {
+    if (Array.isArray(r.cards) && r.cards.length >= 4 && WAA_Logic?.helpers?._seq_result) {
+      computed = WAA_Logic.helpers._seq_result(r.cards);
+    }
+  } catch (e) { /* ignore and fallback */ }
+  const view = WAA_Logic.helpers.RoundView(r.cards, computed || r.result);
   view.segment = r.segment || null;
   view.sensitive = Boolean(r.sensitive);
   return view;
@@ -889,6 +937,7 @@ STATE.edit = { mode: 'none', first: null, target: null, armed: false };
 STATE.cutSummary = null;
 STATE.didAutoColor = false;
 STATE.previewRounds = [];
+STATE.baseDeck = null; // 套用後的基準牌序（切牌永遠以此為基準）
 STATE.warnings = [];
 STATE.warnType = null; // 'signal' | 'swap'
 function renderWarningsPanel() {
@@ -931,6 +980,13 @@ function snapshotPreviewRounds() {
 // --- 【最終修正版】請用這整段程式碼替換您現有的 window.autoColorSwap 函式 ---
 // =================================================================================
 window.autoColorSwap = function autoColorSwap() {
+  // 紅0 模式時不執行卡色（避免與紅0訊號互相干擾）
+  try {
+    const sel = document.getElementById('signalRule');
+    const mode = sel && sel.value ? sel.value : (STATE && STATE.signalMode);
+    if (mode === 'red0') { toast('紅0 模式不需要卡色'); return; }
+  } catch (e) {}
+
   const rounds = INTERNAL_STATE.rounds;
   if (!Array.isArray(rounds) || rounds.length === 0) return;
 
@@ -1184,6 +1240,15 @@ function performCardSwap(a, b) {
   // 2. 呼叫渲染函式，用新的統計數據刷新右上角的表格
   renderSuits(updated_suit_counts);
 
+  // 3. 立即刷新主表格（結果/訊號會重新計算）與右側預覽
+  try {
+    updateMainTable();
+    const updatedDeck = INTERNAL_STATE.rounds.flatMap(r => r.cards).concat(INTERNAL_STATE.tail || []);
+    STATE.previewRounds = snapshotPreviewRounds();
+    STATE.previewCards = updatedDeck.slice();
+    renderPreview(STATE.previewCards);
+  } catch (e) { /* no-op */ }
+
 
 
 }
@@ -1196,6 +1261,17 @@ function performRoundSwap(i, j) {
   const tmp = INTERNAL_STATE.rounds[i];
   INTERNAL_STATE.rounds[i] = INTERNAL_STATE.rounds[j];
   INTERNAL_STATE.rounds[j] = tmp;
+
+  // 交換後立即刷新：結果/訊號/預覽/統計
+  try {
+    const updated_suit_counts = _suit_counts(INTERNAL_STATE.rounds, INTERNAL_STATE.tail);
+    renderSuits(updated_suit_counts);
+    updateMainTable();
+    const updated_deck = INTERNAL_STATE.rounds.flatMap(r => r.cards).concat(INTERNAL_STATE.tail || []);
+    STATE.previewRounds = snapshotPreviewRounds();
+    STATE.previewCards = updated_deck.slice();
+    renderPreview(STATE.previewCards);
+  } catch (e) { /* no-op */ }
 }
 
 const SUIT_SYMBOL_TO_LETTER = {};
@@ -1303,6 +1379,38 @@ function renderStatsTable(suitCounts) {
   container.innerHTML = html;
 }
 function renderSuits(counts) { renderStatsTable(counts); }
+function _compute_bpt(rounds) {
+  const res = { B: 0, P: 0, T: 0, total: 0 };
+  if (!Array.isArray(rounds)) return res;
+  for (const r of rounds) {
+    if (!r || !Array.isArray(r.cards) || r.cards.length < 4) continue;
+    let rr = null;
+    try {
+      const sim = new Simulator(r.cards.map((c, i) => c.clone(i)));
+      const r0 = sim.simulate_round(0, { no_swap: true });
+      rr = r0 ? r0.result : null;
+    } catch (_) { rr = null; }
+    if (!rr) continue;
+    const val = String(rr);
+    if (['莊', 'Banker', 'B'].includes(val)) res.B++;
+    else if (['閒', 'Player', 'P'].includes(val)) res.P++;
+    else if (['和', 'Tie', 'T'].includes(val)) res.T++;
+  }
+  res.total = res.B + res.P + res.T;
+  return res;
+}
+function renderBPTSummary(counts) {
+  const el = $('bptSummary');
+  if (!el) return;
+  if (!counts || !counts.total) { el.innerHTML = ''; return; }
+  const pct = (n) => ((n / counts.total) * 100).toFixed(1) + '%';
+  el.innerHTML = `
+    <div class="bpt-chip b"><span class="label">莊</span>${counts.B}（${pct(counts.B)}）</div>
+    <div class="bpt-chip p"><span class="label">閒</span>${counts.P}（${pct(counts.P)}）</div>
+    <div class="bpt-chip t"><span class="label">和</span>${counts.T}（${pct(counts.T)}）</div>
+    <div class="bpt-chip"><span class="label">總</span>${counts.total}</div>
+  `;
+}
 function renderCutSummary(summary) {
   const container = $('cutSummary');
   if (!container) return;
@@ -1729,6 +1837,7 @@ function updateMainTable() {
   // 2. 將計算好的最新序列化數據傳給 renderRounds 來更新畫面
   renderRounds(serialized_rounds);
   console.log("Main table UI updated.");
+  try { renderBPTSummary(_compute_bpt(ordered_rounds)); } catch (e) {}
 }
 
 function rebuildRoundsFromDeck(deck) {
@@ -1762,12 +1871,14 @@ async function generateShoe() {
     clearSwap();
     updateStatus('Starting...');
     const num_shoes = Number($('numShoes').value);
-    const signal_suit = $('signalSuit').value;
+    const signal_rule = ($('signalRule') && $('signalRule').value) || 'suit';
+    const signal_suit = (signal_rule === 'red0' || signal_rule === 'backcolor' || signal_rule === 'zero0') ? '' : ($('signalSuit') ? $('signalSuit').value : '');
     const tie_signal_suit = $('tieSuit').value || '♣';
     // 取得尾段輸入框的值
     const multi_pass_min_cards = Number($('multiPassMinCards').value) || 15;
     WAA_Logic.setConfig({
       NUM_SHOES: num_shoes,
+      HEART_SIGNAL_ENABLED: !(signal_rule === 'red0' || signal_rule === 'backcolor' || signal_rule === 'zero0'),
       SIGNAL_SUIT: _normalize_suit_input(signal_suit),
       TIE_SIGNAL_SUIT: _normalize_suit_input(tie_signal_suit),
       MULTI_PASS_MIN_CARDS: multi_pass_min_cards
@@ -1812,6 +1923,12 @@ async function generateShoe() {
 
     // 呼叫 UI 更新函式
     applyGenerateResponse(data_for_ui);
+    // 若為背色模式，生成後自動執行卡色（就近交換 BBBR/RRRB）
+    try {
+      if (signal_rule === 'backcolor' && typeof window.autoColorSwap === 'function') {
+        window.autoColorSwap();
+      }
+    } catch (e) { console.warn('autoColorSwap after generate failed', e); }
     const count = (data_for_ui.rounds || []).length;
     toast(`牌靴已完成，共 ${count} 局`);
     updateStatus(`Generation complete. ${count} rounds.`);
@@ -1855,7 +1972,9 @@ async function simulateCut() {
     toast('\u5207\u724c\u5f35\u6578\u7121\u6548');
     return;
   }
-  const deckSize = deckArray.length;
+  // 切牌改成永遠以「套用按鈕」後的牌序為基準
+  const base = (Array.isArray(STATE.baseDeck) && STATE.baseDeck.length) ? STATE.baseDeck : deckArray;
+  const deckSize = base.length;
   if (deckSize <= 1) {
     toast('\u5361\u724c\u6578\u91cf\u592a\u5c11\uff0c\u7121\u9700\u5207\u724c');
     return;
@@ -1871,8 +1990,8 @@ async function simulateCut() {
   try {
     if (input) input.value = normalizedCut;
     const rotatedOrder = normalizedCut === 0
-      ? deckArray.slice()
-      : deckArray.slice(normalizedCut).concat(deckArray.slice(0, normalizedCut));
+      ? base.slice()
+      : base.slice(normalizedCut).concat(base.slice(0, normalizedCut));
     rotatedOrder.forEach((card, idx) => {
       if (card && typeof card === 'object') {
         card.pos = idx;
@@ -1929,6 +2048,7 @@ function bindControls() {
   const btnPreview = $('btnPreview');
   const btnPrint = $('btnPrint');
   const btnExportPreview = $('btnExportPreview');
+  const signalRuleSel = $('signalRule');
   if (btnPreview) { btnPreview.addEventListener('click', () => openPreviewWindow(false)); }
   if (btnPrint) { btnPrint.addEventListener('click', () => openPreviewWindow(true)); }
   if (btnExportPreview) { btnExportPreview.addEventListener('click', exportPreviewToXLSX); }
@@ -2064,10 +2184,31 @@ function bindControls() {
       const updated_deck = INTERNAL_STATE.rounds.flatMap(r => r.cards).concat(INTERNAL_STATE.tail);
       STATE.previewRounds = snapshotPreviewRounds();
       STATE.previewCards = updated_deck.slice();
+      // 設定基準牌序：之後「切牌」都以這個順序為基準
+      STATE.baseDeck = updated_deck.slice();
       renderPreview(STATE.previewCards);
       toast('變更已套用至預覽和統計');
     });
   }
+
+  // 訊號規則切換：紅0 模式時停用「卡色」按鈕
+  function refreshSignalModeUI(){
+    const mode = signalRuleSel && signalRuleSel.value ? signalRuleSel.value : 'suit';
+    STATE.signalMode = mode;
+    const btnAuto = $('btnAutoSwap');
+    if (btnAuto) {
+      if (mode === 'red0' || mode === 'zero0') { btnAuto.disabled = true; btnAuto.title = '此模式不需要卡色'; }
+      else { btnAuto.disabled = false; btnAuto.title = ''; }
+    }
+    // 紅0 模式時關閉訊號花色選擇，避免誤用
+    const suitSel = $('signalSuit');
+    if (suitSel) {
+      if (mode === 'red0' || mode === 'backcolor' || mode === 'zero0') { suitSel.disabled = true; suitSel.title = '此模式：訊號花色停用'; }
+      else { suitSel.disabled = false; suitSel.title = ''; }
+    }
+  }
+  if (signalRuleSel) signalRuleSel.addEventListener('change', refreshSignalModeUI);
+  refreshSignalModeUI();
 
   // --- 步驟 4: 綁定表格點擊事件 (這個位置不變) ---
   const tbody = $('tbody');
@@ -2126,6 +2267,57 @@ if (document.readyState === 'loading') {
 } else {
   bindControls();
 }
+
+// ===================== 快捷鍵（Hotkeys） =====================
+// 目的：用鍵盤觸發常用操作；避免在輸入框時干擾
+(() => {
+  const isTyping = (el) => {
+    if (!el) return false;
+    const tag = (el.tagName || '').toUpperCase();
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  };
+
+  // 單鍵快捷
+  const keymap = {
+    'z': 'btnEdit',         // 編輯
+    'x': 'btnSwap',         // 卡交換（手動交換兩張牌）
+    'k': 'btnAutoSwap',     // 卡色（自動交換）
+    'a': 'btnApplyChanges', // 套用
+    'g': 'btnGen',          // 創建
+    'v': 'btnPreview',      // 預覽
+    'u': 'btnExportCombined', // 導出 CSV
+    'c': 'btnCut',          // 切牌
+  };
+  // Ctrl 組合快捷（支援 Cmd on macOS）
+  const ctrlKeymap = {
+    'x': 'btnExportPreview', // Ctrl+X → Excel 匯出
+  };
+
+  const helpText = '快捷鍵: Z=編輯, X=卡交換, K=卡色, A=套用, G=創建, V=預覽, Ctrl+X=Excel, U=導出, C=切牌, Esc=取消編輯, ?=說明';
+
+  document.addEventListener('keydown', (ev) => {
+    // 在輸入情境時不觸發
+    if (isTyping(ev.target)) return;
+    const key = (ev.key || '').toLowerCase();
+    if (!key) return;
+
+    if (key === '?') { toast(helpText); ev.preventDefault(); return; }
+    if (key === 'escape') { const b = document.getElementById('btnCancelEdit'); if (b) b.click(); return; }
+
+    const useCtrl = !!(ev.ctrlKey || ev.metaKey);
+    const id = (useCtrl ? ctrlKeymap[key] : keymap[key]);
+    if (!id) return;
+    const btn = document.getElementById(id);
+    if (btn && typeof btn.click === 'function') {
+      btn.click();
+      // 給一個簡短提示
+      if (!useCtrl && key === 'z') toast('編輯模式');
+      else if (!useCtrl && key === 'x') toast('卡交換：請依畫面操作');
+      else if (useCtrl && key === 'x') toast('Excel 匯出');
+      ev.preventDefault();
+    }
+  }, { passive: true });
+})();
 
 
 function exportRawDataToCSV() {
