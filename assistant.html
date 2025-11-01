@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>理牌助手</title>
+    <!-- 我們會從主頁面繼承樣式和函式庫，所以這裡保持最簡潔 -->
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #0f111a; color: #eef3ff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #upload-container { text-align: center; }
+        #file-input { display: none; }
+        #upload-label { background-color: #007bff; color: white; padding: 50px 80px; font-size: 1.5em; border-radius: 10px; cursor: pointer; display: block; }
+        #upload-label:hover { background-color: #0056b3; }
+        #loading-spinner { display: none; /* 之後處理中會顯示 */ }
+    </style>
+</head>
+<body>
+    <div id="upload-container">
+        <label for="file-input" id="upload-label">點擊此處，選擇 Excel 檔案</label>
+        <input type="file" id="file-input" accept=".xlsx">
+        <div id="loading-spinner">處理中，請稍候...</div>
+    </div>
+
+    <!-- 關鍵：我們需要引入 ExcelJS 函式庫 -->
+    <!-- 請確認這個路徑是正確的，如果您的主頁面是從網路 CDN 載入，這裡也用一樣的路徑 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+
+    <script>
+        // 這裡是我們實現 Excel 讀取和解析邏輯的地方
+    </script>
+</body>
+</html>
