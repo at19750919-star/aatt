@@ -247,6 +247,14 @@ button{height:40px;padding:0 18px;border-radius:10px;border:1px solid #2a3342;ba
 .warn-grid{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;white-space:nowrap}
 .warn-chip{display:inline-flex;align-items:center;justify-content:center;padding:4px 8px;border:1px solid #3a4a62;border-radius:6px;background:#152032;color:#ffd773;font-weight:700;flex:0 0 auto}
 
+/* 莊/閒/和 統計摘要 */
+.bpt-summary{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+.bpt-chip{background:#142033;border:1px solid #2a3b55;border-radius:8px;padding:6px 10px;color:#e6eef8;font-weight:700}
+.bpt-chip .label{margin-right:6px;opacity:.85}
+.bpt-chip.b{border-color:#ff7d7d;color:#ff7d7d}
+.bpt-chip.p{border-color:#7ddfff;color:#7ddfff}
+.bpt-chip.t{border-color:#ffd773;color:#ffd773}
+
 /* 範圍：牌靴格子 */
 .cell{display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;background:#0e1420;border:1px solid #ffffff0d;font-weight:600;color:var(--text)} /* 功能：控制每張牌格的比例、配色與置中（改為與左表一致） */
 
