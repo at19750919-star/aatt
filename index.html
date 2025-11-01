@@ -27,6 +27,14 @@
                   <option value="C">梅花 </option>
               </select>
             </div>
+            <div class="input"><label>訊號規則</label>
+              <select id="signalRule">
+                <option value="suit" selected>花色（現行）</option>
+                <option value="red0">紅0（♥/♦ 的 0 點）</option>
+                <option value="backcolor">背色模式（BBBR/RRRB）</option>
+                <option value="zero0">0 點（任意花色）</option>
+              </select>
+            </div>
             <div class="input"><label>和局訊號</label>
               <select id="tieSuit">
                 <option value="" selected>關閉</option>
@@ -79,6 +87,7 @@
         <div class="head"><h3>統計</h3><div class="small">花色+牌面統計</div></div>
         <div class="body">
           <div class="stats" id="suits" style="max-width:100vw;"></div>
+          <div id="bptSummary" class="bpt-summary"></div>
           <div>
             <div class="log-panel" id="warningsSwap" style="display:none">
               <div class="log-title">卡色交換警示</div>
@@ -118,5 +127,6 @@
   </main>
   <div class="toast" id="toast"></div>
   <script src="script.js"></script>
+  <script src="signals.js"></script>
 </body>
 </html>
