@@ -2718,12 +2718,12 @@ async function exportPreviewToXLSX() {
                 // 盡量減少視覺邊距（不縮排、不換行、置中）
                 cell.alignment = { horizontal: 'center', vertical: 'middle', indent: 0, wrapText: false };
 
-                // 背景：R 卡淺黃色、B 卡淺藍色（依 class 判斷）
+                // 背景：R 卡黃色、B 卡青色（高對比度列印版本顏色）
                 const cls = String(cellInfo.className || '');
                 if (cls.includes('card-red')) {
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }; // 淺黃
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }; // 黃色（紅卡對應黃色）
                 } else if (cls.includes('card-blue')) {
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0080FF' } }; // 淺藍
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF00FFFF' } }; // 青色（藍卡對應青色）
                 }
 
                 // 邊框：基本細框；若為 T_idx 外框邊界則加粗
@@ -2869,14 +2869,14 @@ async function exportCombinedToExcel() {
                 const wsCell = ws1.getCell(r + 1, sc);
                 wsCell.value = cell.value || '';
                 wsCell.alignment = { vertical: 'middle', horizontal: 'center' };
-                wsCell.font = { size: 22, bold: true };
+                wsCell.font = { size: 22, bold: true, color: { argb: 'FF000000' } }; // 添加黑色文字
                 wsCell.border = { top: borderThin, left: borderThin, bottom: borderThin, right: borderThin };
                 
-                // 顏色設定（與原本完全相同）
+                // 顏色設定：R 卡黃色、B 卡青色（高對比度）
                 if (cell.className.includes('card-red')) {
-                    wsCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF676712' } };
+                    wsCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }; // 黃色（紅卡對應黃色）
                 } else if (cell.className.includes('card-blue')) {
-                    wsCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF041337' } };
+                    wsCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF00FFFF' } }; // 青色（藍卡對應青色）
                 }
                 
                 if (cell.className.includes('signal-match')) {
