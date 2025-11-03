@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>淺色模式設定 - WAA 理牌 v2.0</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* 淺色模式設定頁面專用樣式 */
+        .settings-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .settings-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f0f4f8 0%, #e8f4fd 100%);
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .setting-group {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .setting-group h3 {
+            margin: 0 0 15px 0;
+            color: #2d3748;
+            font-size: 18px;
+            font-weight: 600;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        
+        .color-picker-group {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .color-picker-group label {
+            font-size: 14px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+        
+        .color-picker {
+            width: 40px;
+            height: 30px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .color-input {
+            width: 80px;
+            padding: 4px 8px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .preview-area {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .preview-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .preview-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-large {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            min-width: 140px;
+        }
+        
+        .back-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 10px 15px;
+            background: white;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #4a5568;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+        }
+        
+        .back-link:hover {
+            background: #f7fafc;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* 強制使用淺色模式 */
+        body {
+            background: linear-gradient(135deg, #f0f4f8 0%, #e8f4fd 50%, #f7fafc 100%) !important;
+            color: #2d3748 !important;
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">← 回到主頁</a>
+    
+    <div class="settings-container">
+        <div class="settings-header">
+            <h1>🎨 淺色模式設定</h1>
+            <p>自定義您的淺色主題外觀，調整顏色、漸變和視覺效果</p>
+        </div>
+        
+        <div class="settings-grid">
+            <!-- 背景色設定 -->
+            <div class="setting-group">
+                <h3>🌅 背景色調</h3>
+                <div class="color-picker-group">
+                    <label>主背景色</label>
+                    <input type="color" class="color-picker" id="bgMain" value="#f0f4f8">
+                    <input type="text" class="color-input" id="bgMainText" value="#f0f4f8">
+                </div>
+                <div class="color-picker-group">
+                    <label>卡片背景</label>
+                    <input type="color" class="color-picker" id="bgCard" value="#ffffff">
+                    <input type="text" class="color-input" id="bgCardText" value="#ffffff">
+                </div>
+                <div class="color-picker-group">
+                    <label>輸入框背景</label>
+                    <input type="color" class="color-picker" id="bgInput" value="#ffffff">
+                    <input type="text" class="color-input" id="bgInputText" value="#ffffff">
+                </div>
+            </div>
+            
+            <!-- 文字色彩 -->
+            <div class="setting-group">
+                <h3>📝 文字色彩</h3>
+                <div class="color-picker-group">
+                    <label>主要文字</label>
+                    <input type="color" class="color-picker" id="textPrimary" value="#2d3748">
+                    <input type="text" class="color-input" id="textPrimaryText" value="#2d3748">
+                </div>
+                <div class="color-picker-group">
+                    <label>次要文字</label>
+                    <input type="color" class="color-picker" id="textSecondary" value="#4a5568">
+                    <input type="text" class="color-input" id="textSecondaryText" value="#4a5568">
+                </div>
+                <div class="color-picker-group">
+                    <label>提示文字</label>
+                    <input type="color" class="color-picker" id="textMuted" value="#718096">
+                    <input type="text" class="color-input" id="textMutedText" value="#718096">
+                </div>
+            </div>
+            
+            <!-- 強調色 */
+            <div class="setting-group">
+                <h3>🎯 強調色彩</h3>
+                <div class="color-picker-group">
+                    <label>藍色強調</label>
+                    <input type="color" class="color-picker" id="accentBlue" value="#4299e1">
+                    <input type="text" class="color-input" id="accentBlueText" value="#4299e1">
+                </div>
+                <div class="color-picker-group">
+                    <label>綠色強調</label>
+                    <input type="color" class="color-picker" id="accentGreen" value="#48bb78">
+                    <input type="text" class="color-input" id="accentGreenText" value="#48bb78">
+                </div>
+                <div class="color-picker-group">
+                    <label>紅色強調</label>
+                    <input type="color" class="color-picker" id="accentRed" value="#f56565">
+                    <input type="text" class="color-input" id="accentRedText" value="#f56565">
+                </div>
+                <div class="color-picker-group">
+                    <label>黃色強調</label>
+                    <input type="color" class="color-picker" id="accentYellow" value="#d69e2e">
+                    <input type="text" class="color-input" id="accentYellowText" value="#d69e2e">
+                </div>
+            </div>
+            
+            <!-- 邊框與陰影 -->
+            <div class="setting-group">
+                <h3>🔲 邊框與效果</h3>
+                <div class="color-picker-group">
+                    <label>邊框顏色</label>
+                    <input type="color" class="color-picker" id="borderColor" value="#e2e8f0">
+                    <input type="text" class="color-input" id="borderColorText" value="#e2e8f0">
+                </div>
+                <div class="color-picker-group">
+                    <label>陰影透明度</label>
+                    <input type="range" min="0" max="100" value="10" id="shadowOpacity">
+                    <span id="shadowOpacityValue">10%</span>
+                </div>
+                <div class="color-picker-group">
+                    <label>圓角大小</label>
+                    <input type="range" min="0" max="20" value="12" id="borderRadius">
+                    <span id="borderRadiusValue">12px</span>
+                </div>
+            </div>
+            
+            <!-- 特殊效果 -->
+            <div class="setting-group">
+                <h3>✨ 特殊效果</h3>
+                <div class="color-picker-group">
+                    <label>啟用漸變背景</label>
+                    <input type="checkbox" id="enableGradients" checked>
+                    <span></span>
+                </div>
+                <div class="color-picker-group">
+                    <label>啟用模糊效果</label>
+                    <input type="checkbox" id="enableBlur">
+                    <span></span>
+                </div>
+                <div class="color-picker-group">
+                    <label>動畫過渡時間</label>
+                    <input type="range" min="0" max="500" value="200" id="transitionTime">
+                    <span id="transitionTimeValue">200ms</span>
+                </div>
+            </div>
+            
+            <!-- 預設方案 -->
+            <div class="setting-group">
+                <h3>🎨 預設方案</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button class="btn btn-secondary" onclick="applyPreset('clean')">極簡白淨</button>
+                    <button class="btn btn-secondary" onclick="applyPreset('warm')">溫暖米色</button>
+                    <button class="btn btn-secondary" onclick="applyPreset('cool')">清涼藍調</button>
+                    <button class="btn btn-secondary" onclick="applyPreset('soft')">柔和粉彩</button>
+                    <button class="btn btn-secondary" onclick="applyPreset('vibrant')">活力彩色</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 即時預覽區域 -->
+        <div class="preview-area">
+            <h3>📱 即時預覽</h3>
+            <div class="preview-cards">
+                <div class="preview-card">
+                    <h4>卡片標題</h4>
+                    <p>這是卡片內容的預覽文字</p>
+                    <button class="btn btn-primary">主要按鈕</button>
+                </div>
+                <div class="preview-card">
+                    <label>輸入框範例</label>
+                    <input type="text" placeholder="輸入內容..." style="width: 100%; margin-top: 5px;">
+                </div>
+                <div class="preview-card">
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px;">
+                        <div class="cell" style="background: #fed7d7; padding: 8px; text-align: center;">R</div>
+                        <div class="cell" style="background: #bee3f8; padding: 8px; text-align: center;">B</div>
+                        <div class="cell" style="background: #fed7d7; padding: 8px; text-align: center;">R</div>
+                        <div class="cell" style="background: #bee3f8; padding: 8px; text-align: center;">B</div>
+                        <div class="cell" style="background: #fed7d7; padding: 8px; text-align: center;">R</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 操作按鈕 -->
+        <div class="action-buttons">
+            <button class="btn btn-large btn-confirm" onclick="applySettings()">✅ 應用設定</button>
+            <button class="btn btn-large btn-primary" onclick="previewInMainPage()">👀 主頁預覽</button>
+            <button class="btn btn-large btn-secondary" onclick="resetToDefault()">🔄 重置預設</button>
+            <button class="btn btn-large" onclick="exportSettings()">💾 導出設定</button>
+            <button class="btn btn-large" onclick="importSettings()">📂 導入設定</button>
+        </div>
+    </div>
+    
+    <script>
+        // 淺色模式設定頁面的 JavaScript 功能
+        
+        // 同步顏色選擇器和文字輸入
+        function syncColorInputs() {
+            const colorPairs = [
+                ['bgMain', 'bgMainText'],
+                ['bgCard', 'bgCardText'], 
+                ['bgInput', 'bgInputText'],
+                ['textPrimary', 'textPrimaryText'],
+                ['textSecondary', 'textSecondaryText'],
+                ['textMuted', 'textMutedText'],
+                ['accentBlue', 'accentBlueText'],
+                ['accentGreen', 'accentGreenText'],
+                ['accentRed', 'accentRedText'],
+                ['accentYellow', 'accentYellowText'],
+                ['borderColor', 'borderColorText']
+            ];
+            
+            colorPairs.forEach(([pickerId, textId]) => {
+                const picker = document.getElementById(pickerId);
+                const text = document.getElementById(textId);
+                
+                picker.addEventListener('input', () => {
+                    text.value = picker.value;
+                    updatePreview();
+                });
+                
+                text.addEventListener('input', () => {
+                    if (/^#[0-9A-Fa-f]{6}$/.test(text.value)) {
+                        picker.value = text.value;
+                        updatePreview();
+                    }
+                });
+            });
+        }
+        
+        // 更新滑動條顯示值
+        function updateSliderValues() {
+            const shadowOpacity = document.getElementById('shadowOpacity');
+            const shadowOpacityValue = document.getElementById('shadowOpacityValue');
+            shadowOpacity.addEventListener('input', () => {
+                shadowOpacityValue.textContent = shadowOpacity.value + '%';
+                updatePreview();
+            });
+            
+            const borderRadius = document.getElementById('borderRadius');
+            const borderRadiusValue = document.getElementById('borderRadiusValue');
+            borderRadius.addEventListener('input', () => {
+                borderRadiusValue.textContent = borderRadius.value + 'px';
+                updatePreview();
+            });
+            
+            const transitionTime = document.getElementById('transitionTime');
+            const transitionTimeValue = document.getElementById('transitionTimeValue');
+            transitionTime.addEventListener('input', () => {
+                transitionTimeValue.textContent = transitionTime.value + 'ms';
+                updatePreview();
+            });
+        }
+        
+        // 即時預覽更新
+        function updatePreview() {
+            // 這裡可以即時更新預覽區域的樣式
+            const previewCards = document.querySelectorAll('.preview-card');
+            const bgCard = document.getElementById('bgCard').value;
+            const textPrimary = document.getElementById('textPrimary').value;
+            const borderColor = document.getElementById('borderColor').value;
+            const borderRadius = document.getElementById('borderRadius').value;
+            
+            previewCards.forEach(card => {
+                card.style.backgroundColor = bgCard;
+                card.style.color = textPrimary;
+                card.style.borderColor = borderColor;
+                card.style.borderRadius = borderRadius + 'px';
+            });
+        }
+        
+        // 應用預設方案
+        function applyPreset(presetName) {
+            const presets = {
+                clean: {
+                    bgMain: '#ffffff',
+                    bgCard: '#ffffff', 
+                    bgInput: '#ffffff',
+                    textPrimary: '#1a202c',
+                    textSecondary: '#4a5568',
+                    textMuted: '#718096',
+                    accentBlue: '#3182ce',
+                    accentGreen: '#38a169',
+                    accentRed: '#e53e3e',
+                    accentYellow: '#d69e2e',
+                    borderColor: '#e2e8f0'
+                },
+                warm: {
+                    bgMain: '#fef5e7',
+                    bgCard: '#ffffff',
+                    bgInput: '#fefcf6', 
+                    textPrimary: '#744210',
+                    textSecondary: '#92400e',
+                    textMuted: '#a16207',
+                    accentBlue: '#1e40af',
+                    accentGreen: '#166534',
+                    accentRed: '#dc2626',
+                    accentYellow: '#ca8a04',
+                    borderColor: '#fed7aa'
+                },
+                cool: {
+                    bgMain: '#f0f9ff',
+                    bgCard: '#ffffff',
+                    bgInput: '#f8fafc',
+                    textPrimary: '#0c4a6e',
+                    textSecondary: '#075985', 
+                    textMuted: '#0284c7',
+                    accentBlue: '#0284c7',
+                    accentGreen: '#059669',
+                    accentRed: '#dc2626',
+                    accentYellow: '#ca8a04',
+                    borderColor: '#bae6fd'
+                },
+                soft: {
+                    bgMain: '#fdf2f8',
+                    bgCard: '#ffffff',
+                    bgInput: '#fefcfe',
+                    textPrimary: '#831843',
+                    textSecondary: '#be185d',
+                    textMuted: '#ec4899',
+                    accentBlue: '#7c3aed',
+                    accentGreen: '#059669',
+                    accentRed: '#e11d48',
+                    accentYellow: '#ca8a04',
+                    borderColor: '#f9a8d4'
+                },
+                vibrant: {
+                    bgMain: '#f0fdf4',
+                    bgCard: '#ffffff',
+                    bgInput: '#fefffe',
+                    textPrimary: '#14532d',
+                    textSecondary: '#166534',
+                    textMuted: '#16a34a',
+                    accentBlue: '#2563eb',
+                    accentGreen: '#16a34a',
+                    accentRed: '#dc2626',
+                    accentYellow: '#eab308',
+                    borderColor: '#bbf7d0'
+                }
+            };
+            
+            const preset = presets[presetName];
+            if (preset) {
+                Object.keys(preset).forEach(key => {
+                    const picker = document.getElementById(key);
+                    const text = document.getElementById(key + 'Text');
+                    if (picker && text) {
+                        picker.value = preset[key];
+                        text.value = preset[key];
+                    }
+                });
+                updatePreview();
+            }
+        }
+        
+        // 應用設定到主樣式
+        function applySettings() {
+            const settings = {
+                bgMain: document.getElementById('bgMain').value,
+                bgCard: document.getElementById('bgCard').value,
+                bgInput: document.getElementById('bgInput').value,
+                textPrimary: document.getElementById('textPrimary').value,
+                textSecondary: document.getElementById('textSecondary').value,
+                textMuted: document.getElementById('textMuted').value,
+                accentBlue: document.getElementById('accentBlue').value,
+                accentGreen: document.getElementById('accentGreen').value,
+                accentRed: document.getElementById('accentRed').value,
+                accentYellow: document.getElementById('accentYellow').value,
+                borderColor: document.getElementById('borderColor').value,
+                shadowOpacity: document.getElementById('shadowOpacity').value,
+                borderRadius: document.getElementById('borderRadius').value,
+                transitionTime: document.getElementById('transitionTime').value,
+                enableGradients: document.getElementById('enableGradients').checked,
+                enableBlur: document.getElementById('enableBlur').checked
+            };
+            
+            // 保存到 localStorage
+            localStorage.setItem('lightThemeSettings', JSON.stringify(settings));
+            
+            alert('✅ 淺色模式設定已保存！請到主頁查看效果。');
+        }
+        
+        // 在主頁預覽
+        function previewInMainPage() {
+            applySettings();
+            window.open('index.html', '_blank');
+        }
+        
+        // 重置為預設值
+        function resetToDefault() {
+            if (confirm('確定要重置所有設定為預設值嗎？')) {
+                applyPreset('clean');
+                document.getElementById('shadowOpacity').value = 10;
+                document.getElementById('borderRadius').value = 12;
+                document.getElementById('transitionTime').value = 200;
+                document.getElementById('enableGradients').checked = true;
+                document.getElementById('enableBlur').checked = false;
+                updateSliderValues();
+                updatePreview();
+            }
+        }
+        
+        // 導出設定
+        function exportSettings() {
+            applySettings();
+            const settings = localStorage.getItem('lightThemeSettings');
+            const blob = new Blob([settings], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'light-theme-settings.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // 導入設定
+        function importSettings() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const settings = JSON.parse(e.target.result);
+                            Object.keys(settings).forEach(key => {
+                                const element = document.getElementById(key);
+                                if (element) {
+                                    if (element.type === 'checkbox') {
+                                        element.checked = settings[key];
+                                    } else {
+                                        element.value = settings[key];
+                                        // 同步文字輸入框
+                                        const textElement = document.getElementById(key + 'Text');
+                                        if (textElement) textElement.value = settings[key];
+                                    }
+                                }
+                            });
+                            updateSliderValues();
+                            updatePreview();
+                            alert('✅ 設定導入成功！');
+                        } catch (err) {
+                            alert('❌ 設定檔案格式錯誤！');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        }
+        
+        // 頁面載入完成後初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            syncColorInputs();
+            updateSliderValues();
+            updatePreview();
+            
+            // 載入已保存的設定
+            const savedSettings = localStorage.getItem('lightThemeSettings');
+            if (savedSettings) {
+                try {
+                    const settings = JSON.parse(savedSettings);
+                    Object.keys(settings).forEach(key => {
+                        const element = document.getElementById(key);
+                        if (element) {
+                            if (element.type === 'checkbox') {
+                                element.checked = settings[key];
+                            } else {
+                                element.value = settings[key];
+                                const textElement = document.getElementById(key + 'Text');
+                                if (textElement) textElement.value = settings[key];
+                            }
+                        }
+                    });
+                    updateSliderValues();
+                    updatePreview();
+                } catch (err) {
+                    console.log('載入設定失敗，使用預設值');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,30 +1,47 @@
+**禁止事項：**
+> 注意：本專案禁止使用任何 git 指令；VS Code 於執行/偵錯前會自動顯示警告（任務：no-git-guard）。  
+# Repository Guidelines
+
+- 嚴禁使用任何 `git` 指令（包含但不限於 `git checkout`、`git reset`、`git restore`、`git clean`、`git commit`、`git pull` 等）。  
+- 只能直接編輯檔案內容，任何版本還原或其他 git 操作一律不得執行。
+
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `index.html` holds base markup and bootstraps front-end assets; keep global layout updates here.
-- `style.css` centralizes shared styling; group new sections under a comment banner and prefer utility classes over inline styles.
-- `script.js` contains the interactive logic; organize code by feature modules and leave top-level wiring near the bottom.
-- `waa.py` provides supporting Python helpers; add reusable routines here rather than embedding Python snippets in HTML.
-- Store new media under `assets/` (create the folder if absent) and colocate feature-specific notes in `docs/feature-name.md`.
+- `index.html` – base markup; wire global layout and cards here.
+- `style.css` – shared styles; group new sections under a banner comment and favor utility classes over inline styles.
+- `script.js` – interactive logic; keep feature code grouped, with top‑level wiring near the bottom.
+- `assistant.html` – standalone assistant UI.
+- `waa.py` – Python helpers/utilities; add reusable routines here instead of embedding Python in HTML.
+- `assets/` – store images/media; create the folder if needed.
+- `tests/` – JS specs as `*.spec.js`, Python tests as `test_*.py`.
 
 ## Build, Test, and Development Commands
-- `python -m http.server 8000` – serve the site locally for manual QA; the root folder is the document root.
-- `python waa.py` – run backend/data preparation helpers; add `--help` flags when introducing new entry points.
-- `npx prettier@latest --check index.html script.js style.css` – verify formatting; run with `--write` before submitting.
+- `python -m http.server 8000` – serve the site locally (root is document root).
+- `python waa.py` – run Python helpers; add `--help` when introducing new entry points.
+- `npx prettier@latest --check index.html script.js style.css` – verify formatting; use `--write` to fix.
+- `npx vitest run` – run browser‑focused DOM unit tests (if present).
+- `pytest --maxfail=1 --disable-warnings` – run Python tests.
 
 ## Coding Style & Naming Conventions
-- JavaScript: 2-space indentation, camelCase for functions/variables, PascalCase for factory wrappers, and suffix async methods with `Async`.
-- CSS: keep selectors kebab-case, limit nesting to two levels, and group variables under `:root`.
-- Python: 4-space indentation, snake_case functions, CapWords classes; document non-obvious routines with short docstrings.
-- Use descriptive filenames such as `feature-name.component.js` and mirror that naming in related styles/tests.
+- JavaScript: 2‑space indent; camelCase for vars/functions; PascalCase for factory wrappers; suffix async methods with `Async`.
+- CSS: kebab‑case selectors; limit nesting to two levels; group variables under `:root`.
+- Python: 4‑space indent; snake_case functions; CapWords classes; add short docstrings for non‑obvious routines.
+- Filenames: descriptive and consistent (e.g., `feature-name.component.js`).
 
 ## Testing Guidelines
-- Target `tests/` for automated coverage: name browser-focused suites `*.spec.js` and Python suites `test_*.py`.
-- Favor lightweight DOM unit tests with `vitest` + `@testing-library/dom`; call `npx vitest run` locally.
-- Use `pytest --maxfail=1 --disable-warnings` for Python helpers.
-- Aim for meaningful assertions on new logic (roughly 80% coverage on touched files) and document manual scenarios that cannot be automated.
+- Put automated tests in `tests/`.
+- JS: prefer `vitest` + `@testing-library/dom` for lightweight DOM tests; aim for ~80% coverage on touched code.
+- Python: `pytest` with meaningful assertions.
+- Document manual QA scenarios that aren’t easily automated.
 
 ## Commit & Pull Request Guidelines
-- Write commits using Conventional Commits (`feat: add data importer`, `fix: guard null state`) and keep bodies under 72 characters per line.
-- Reference issue IDs in the first line when available (`feat: add map overlay (#42)`).
-- PRs need: concise summary, testing notes (commands + results), screenshots or screen recordings for UI updates, and a checklist of outstanding tasks.
+- Use Conventional Commits: `feat: add data importer`, `fix: guard null state`.
+- Reference issues when available: `feat: add map overlay (#42)`.
+- PRs should include: concise summary, testing notes (commands + results), and screenshots/screencasts for UI changes.
+
+## Encoding & Editor Settings
+- Save all source files as UTF‑8 without BOM.
+- Recommended safeguards:
+  - `.gitattributes`: `*.html text working-tree-encoding=UTF-8`, same for `*.css` and `*.js`.
+  - Editor: `files.encoding = "utf8"`, `files.autoGuessEncoding = false`.

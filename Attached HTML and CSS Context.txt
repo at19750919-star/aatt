@@ -1,0 +1,592 @@
+Attached HTML and CSS Context
+
+<select id="signalSuit" title="此模式：訊號花色停用" disabled="">
+                                <option value="H" selected="">♥</option>
+                                <option value="S">♠</option>
+                                <option value="D">♦</option>
+                                <option value="C">♣</option>
+                            </select>
+
+
+/* Matched Rule from user-agent */
+input, textarea, select, button {
+  margin-top: 0em;
+  margin-right: 0em;
+  margin-bottom: 0em;
+  margin-left: 0em;
+  text-rendering: auto;
+  color: fieldtext;
+  letter-spacing: normal;
+  word-spacing: normal;
+  line-height: normal;
+  text-transform: none;
+  text-indent: 0px;
+  text-shadow: none;
+  display: inline-block;
+  text-align: start;
+}
+
+/* Matched Rule from user-agent */
+input[type="date" i], input[type="datetime-local" i], input[type="month" i], input[type="week" i], select {
+}
+
+/* Matched Rule from user-agent */
+select {
+  appearance: auto;
+  box-sizing: border-box;
+  align-items: center;
+  white-space-collapse: preserve;
+  text-wrap-mode: nowrap;
+  -webkit-rtl-ordering: logical;
+  color: fieldtext;
+  background-color: field;
+  border-top-width: 1px;
+  border-right-width: 1px;
+  border-bottom-width: 1px;
+  border-left-width: 1px;
+  border-top-style: solid;
+  border-right-style: solid;
+  border-bottom-style: solid;
+  border-left-style: solid;
+  border-top-color: light-dark(rgb(118, 118, 118), rgb(133, 133, 133));
+  border-right-color: light-dark(rgb(118, 118, 118), rgb(133, 133, 133));
+  border-bottom-color: light-dark(rgb(118, 118, 118), rgb(133, 133, 133));
+  border-left-color: light-dark(rgb(118, 118, 118), rgb(133, 133, 133));
+  border-image-source: initial;
+  border-image-slice: initial;
+  border-image-width: initial;
+  border-image-outset: initial;
+  border-image-repeat: initial;
+  cursor: default;
+  border-top-left-radius: 0px;
+  border-top-right-radius: 0px;
+  border-bottom-right-radius: 0px;
+  border-bottom-left-radius: 0px;
+}
+
+/* Matched Rule from user-agent */
+select:disabled {
+}
+
+/* Matched Rule from user-agent */
+select:disabled {
+  opacity: 0.7;
+}
+
+/* Matched Rule from user-agent */
+select:not(:-internal-list-box) {
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+}
+
+/* Matched Rule from user-agent */
+select:disabled {
+}
+
+/* Matched Rule from user-agent */
+select:disabled {
+  border-top-color: rgba(118, 118, 118, 0.3);
+  border-right-color: rgba(118, 118, 118, 0.3);
+  border-bottom-color: rgba(118, 118, 118, 0.3);
+  border-left-color: rgba(118, 118, 118, 0.3);
+}
+
+/* Matched Rule from user-agent */
+select:disabled, optgroup:disabled, option:disabled, select[disabled] > option {
+}
+
+/* Matched Rule from user-agent */
+select:disabled, optgroup:disabled, option:disabled, select[disabled] > option {
+  color: light-dark(graytext, rgb(170, 170, 170));
+}
+
+/* Matched Rule from user-agent */
+select:not(:-internal-list-box):not([multiple]) {
+  text-shadow: -internal-auto-base(none, inherit);
+  text-transform: -internal-auto-base(none, initial);
+  text-rendering: -internal-auto-base(auto, inherit);
+  letter-spacing: -internal-auto-base(normal, inherit);
+  word-spacing: -internal-auto-base(normal, inherit);
+  text-align: -internal-auto-base(start, initial);
+  text-indent: -internal-auto-base(0px, initial);
+  -webkit-rtl-ordering: -internal-auto-base(logical, inherit);
+  cursor: -internal-auto-base(default, inherit);
+  color: -internal-auto-base(FieldText, inherit);
+  background-color: -internal-auto-base(Field, transparent);
+  min-inline-size: -internal-auto-base(auto, calc-size(auto, max(size, 24px)));
+  min-block-size: -internal-auto-base(auto, calc-size(auto, max(size, 24px, 1lh)));
+  display: -internal-auto-base(inline-block, inline-flex);
+  align-items: -internal-auto-base(center, unset);
+  user-select: -internal-auto-base(auto, none);
+}
+
+/* Matched Rule from user-agent */
+select:not(:-internal-list-box):not([multiple]):disabled {
+  opacity: -internal-auto-base(0.7, unset);
+  color: -internal-auto-base(light-dark(GrayText, #aaa), color-mix(in srgb, currentColor 50%, transparent));
+}
+
+/* Matched Rule from regular */
+* {
+  box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+/* Matched Rule from regular */
+select {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid #2a3342;
+  background: #0f1520;
+  color: var(--text);
+  padding: 0 10px;
+  outline: none;
+  width: 100px;
+  text-align: center;
+  font-size: 15px;
+  height: 40px;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  border-bottom-left-radius: 10px;
+  border-top-width: 1px;
+  border-right-width: 1px;
+  border-bottom-width: 1px;
+  border-left-width: 1px;
+  border-top-style: solid;
+  border-right-style: solid;
+  border-bottom-style: solid;
+  border-left-style: solid;
+  border-top-color: rgb(42, 51, 66);
+  border-right-color: rgb(42, 51, 66);
+  border-bottom-color: rgb(42, 51, 66);
+  border-left-color: rgb(42, 51, 66);
+  border-image-source: initial;
+  border-image-slice: initial;
+  border-image-width: initial;
+  border-image-outset: initial;
+  border-image-repeat: initial;
+  background-image: initial;
+  background-position-x: initial;
+  background-position-y: initial;
+  background-size: initial;
+  background-repeat: initial;
+  background-attachment: initial;
+  background-origin: initial;
+  background-clip: initial;
+  background-color: rgb(15, 21, 32);
+  color: var(--text);
+  padding-top: 0px;
+  padding-right: 10px;
+  padding-bottom: 0px;
+  padding-left: 10px;
+  outline-color: initial;
+  outline-style: none;
+  outline-width: initial;
+  width: 100px;
+  text-align: center;
+  font-size: 15px;
+}
+
+/* Matched Rule from regular */
+input[type="number"], select {
+  width: 100%;
+  height: 38px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  padding: 0 4px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  width: 100%;
+  height: 38px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  border-bottom-left-radius: 8px;
+  color: var(--text-primary);
+  padding-top: 0px;
+  padding-right: 4px;
+  padding-bottom: 0px;
+  padding-left: 4px;
+  font-size: 14px;
+  transition-behavior: normal;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+  transition-delay: 0s;
+  transition-property: all;
+}
+
+/* Matched Rule from regular */
+input[type="number"], select {
+  height: 38px;
+  padding: 0 12px;
+  font-size: 14px;
+  border-radius: 8px;
+  height: 38px;
+  padding-top: 0px;
+  padding-right: 12px;
+  padding-bottom: 0px;
+  padding-left: 12px;
+  font-size: 14px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+/* Matched Rule from regular */
+.input-group-compact input, .input-group-compact select {
+  padding: 2px 4px;
+  font-size: 13px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  height: 36px;
+  box-sizing: border-box;
+  padding-top: 2px;
+  padding-right: 4px;
+  padding-bottom: 2px;
+  padding-left: 4px;
+  font-size: 13px;
+  color: var(--text-primary);
+  height: 36px;
+  box-sizing: border-box;
+}
+
+/* Matched Rule from regular */
+.input-group-compact input, .input-group-compact select {
+  height: 36px;
+  padding: 8px 10px;
+  font-size: 13px;
+  height: 36px;
+  padding-top: 8px;
+  padding-right: 10px;
+  padding-bottom: 8px;
+  padding-left: 10px;
+  font-size: 13px;
+}
+
+/* Inherited from ancestor level 1 (user-agent) */
+div {
+  display: block;
+}
+
+/* Inherited from ancestor level 1 (user-agent) */
+address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir="ltr" i], [dir="rtl" i], [dir="auto" i] {
+  unicode-bidi: isolate;
+}
+
+/* Inherited from ancestor level 1 (regular) */
+* {
+  box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+/* Inherited from ancestor level 1 (regular) */
+.input-group-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 100px;
+  max-width: 140px;
+  display: flex;
+  flex-direction: column;
+  row-gap: 4px;
+  column-gap: 4px;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0%;
+  min-width: 100px;
+  max-width: 140px;
+}
+
+/* Inherited from ancestor level 1 (regular) */
+.input-group-compact {
+  min-width: 100px;
+  max-width: 140px;
+  gap: 4px;
+  min-width: 100px;
+  max-width: 140px;
+  row-gap: 4px;
+  column-gap: 4px;
+}
+
+/* Inherited from ancestor level 2 (user-agent) */
+div {
+  display: block;
+}
+
+/* Inherited from ancestor level 2 (user-agent) */
+address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir="ltr" i], [dir="rtl" i], [dir="auto" i] {
+  unicode-bidi: isolate;
+}
+
+/* Inherited from ancestor level 2 (regular) */
+* {
+  box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+/* Inherited from ancestor level 2 (regular) */
+.form-row-single {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  display: flex;
+  row-gap: 12px;
+  column-gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+/* Inherited from ancestor level 2 (regular) */
+.form-row-single {
+  gap: 12px;
+  row-gap: 12px;
+  column-gap: 12px;
+}
+
+/* Inherited from ancestor level 3 (user-agent) */
+div {
+  display: block;
+}
+
+/* Inherited from ancestor level 3 (user-agent) */
+address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir="ltr" i], [dir="rtl" i], [dir="auto" i] {
+  unicode-bidi: isolate;
+}
+
+/* Inherited from ancestor level 3 (regular) */
+* {
+  box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+/* Inherited from ancestor level 3 (regular) */
+.card-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-grow: 1;
+  padding-top: 16px;
+  padding-right: 16px;
+  padding-bottom: 16px;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  row-gap: 16px;
+  column-gap: 16px;
+  flex-grow: 1;
+}
+
+/* Inherited from ancestor level 3 (regular) */
+.card-body {
+  padding: 4px;
+  gap: 4px;
+  margin: 8px;
+  padding-top: 4px;
+  padding-right: 4px;
+  padding-bottom: 4px;
+  padding-left: 4px;
+  row-gap: 4px;
+  column-gap: 4px;
+  margin-top: 8px;
+  margin-right: 8px;
+  margin-bottom: 8px;
+  margin-left: 8px;
+}
+
+/* Inherited from ancestor level 4 (user-agent) */
+div {
+  display: block;
+}
+
+/* Inherited from ancestor level 4 (user-agent) */
+address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir="ltr" i], [dir="rtl" i], [dir="auto" i] {
+  unicode-bidi: isolate;
+}
+
+/* Inherited from ancestor level 4 (regular) */
+* {
+  box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+/* Inherited from ancestor level 4 (regular) */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Inherited from ancestor level 5 (user-agent) */
+div {
+  display: block;
+}
+
+/* Inherited from ancestor level 5 (user-agent) */
+address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir="ltr" i], [dir="rtl" i], [dir="auto" i] {
+  unicode-bidi: isolate;
+}
+
+/* Inherited from ancestor level 5 (regular) */
+* {
+  box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+/* Inherited from ancestor level 5 (regular) */
+.grid-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  row-gap: 16px;
+  column-gap: 16px;
+}
+
+/* Inherited from ancestor level 5 (regular) */
+.grid-main {
+  gap: 8px;
+  row-gap: 8px;
+  column-gap: 8px;
+}
+
+/* Inherited from ancestor level 6 (user-agent) */
+article, aside, footer, header, hgroup, main, nav, search, section {
+  display: block;
+}
+
+/* Inherited from ancestor level 6 (user-agent) */
+address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir="ltr" i], [dir="rtl" i], [dir="auto" i] {
+  unicode-bidi: isolate;
+}
+
+/* Inherited from ancestor level 6 (regular) */
+* {
+  box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+/* Inherited from ancestor level 6 (regular) */
+.container {
+  padding: 16px;
+  padding-top: 16px;
+  padding-right: 16px;
+  padding-bottom: 16px;
+  padding-left: 16px;
+}
+
+/* Inherited from ancestor level 7 (user-agent) */
+body {
+  display: block;
+  margin-top: 8px;
+  margin-right: 8px;
+  margin-bottom: 8px;
+  margin-left: 8px;
+}
+
+/* Inherited from ancestor level 7 (regular) */
+* {
+  box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+/* Inherited from ancestor level 7 (regular) */
+html, body {
+  height: 100%;
+  height: 100%;
+}
+
+/* Inherited from ancestor level 7 (regular) */
+body {
+  margin: 0;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  margin-top: 0px;
+  margin-right: 0px;
+  margin-bottom: 0px;
+  margin-left: 0px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 15px;
+}
+
+/* Inherited from ancestor level 8 (user-agent) */
+html {
+  display: block;
+}
+
+/* Inherited from ancestor level 8 (user-agent) */
+:root {
+  view-transition-name: root;
+}
+
+/* Inherited from ancestor level 8 (regular) */
+* {
+  box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+/* Inherited from ancestor level 8 (regular) */
+html, body {
+  height: 100%;
+  height: 100%;
+}
+
+/* Inherited from ancestor level 8 (regular) */
+:root {
+  --bg-main: #10141f;
+  --bg-card: #1a202c;
+  --bg-input: #0f1520;
+  --border-color: #2d3748;
+  --text-primary: #e2e8f0;
+  --text-secondary: #a0aec0;
+  --text-muted: #718096;
+  --accent-blue: #4299e1;
+  --accent-green: #48bb78;
+  --accent-red: #f56565;
+  --accent-yellow: #ecc94b;
+  --font-sans: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Arial;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --radius: 12px;
+  --soft: #2a3442;
+  --card-bg: #1a202c;
+  --muted: #718096;
+  --text: #e2e8f0;
+  --bad: #f56565;
+  --bg-main: #10141f;
+  --bg-card: #1a202c;
+  --bg-input: #0f1520;
+  --border-color: #2d3748;
+  --text-primary: #e2e8f0;
+  --text-secondary: #a0aec0;
+  --text-muted: #718096;
+  --accent-blue: #4299e1;
+  --accent-green: #48bb78;
+  --accent-red: #f56565;
+  --accent-yellow: #ecc94b;
+  --font-sans: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Arial;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --radius: 12px;
+  --soft: #2a3442;
+  --card-bg: #1a202c;
+  --muted: #718096;
+  --text: #e2e8f0;
+  --bad: #f56565;
+}

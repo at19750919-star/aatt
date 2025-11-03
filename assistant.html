@@ -8,6 +8,7 @@
         #upload-container { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background-color: #121212; }
         #upload-label { padding: 20px 40px; border: 2px dashed #555; border-radius: 10px; cursor: pointer; font-size: 1.5em; transition: all 0.2s ease; }
         #upload-label:hover { background-color: #333; border-color: #888; }
+        #upload-label.drag-over { background-color: #444; border-color: #4fc3f7; transform: scale(1.02); }
         #file-input { display: none; }
         #loading-spinner { display: none; font-size: 2em; }
         #assistant-container { display: none; flex-direction: column; height: 100vh; width: 100vw; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
@@ -24,14 +25,77 @@
         .bg-blue-card { background-color: #1a73e8; }
         .font-red { color: #dc3545; }
         .font-black { color: #212529; }
+
+        /* 檔案管理區域 */
+        #file-manager { display: none; position: fixed; top: 10px; left: 10px; background-color: rgba(0, 0, 0, 0.8); padding: 15px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.3); z-index: 1000; max-width: 300px; }
+        #file-manager h3 { margin: 0 0 10px 0; color: white; font-size: 1.2em; }
+        #saved-files-list { max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
+        .file-item { display: flex; align-items: center; justify-content: space-between; padding: 8px; margin: 5px 0; background-color: rgba(255, 255, 255, 0.1); border-radius: 5px; font-size: 0.9em; }
+        .file-name { flex: 1; margin-right: 10px; cursor: pointer; color: #4fc3f7; }
+        .file-name:hover { text-decoration: underline; }
+        .file-actions { display: flex; gap: 5px; }
+        .file-btn { padding: 2px 6px; font-size: 0.8em; border: none; border-radius: 3px; cursor: pointer; color: white; }
+        .rename-btn { background-color: #ff9800; }
+        .delete-btn { background-color: #f44336; }
+        #save-current-btn { padding: 8px 12px; background-color: #4caf50; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100%; margin-bottom: 10px; }
+        #toggle-manager-btn { position: fixed; top: 10px; right: 10px; padding: 10px; background-color: rgba(0, 0, 0, 0.7); color: white; border: none; border-radius: 50%; cursor: pointer; z-index: 1001; font-size: 1.2em; }
+        
+        /* 重新命名對話框 */
+        #rename-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); z-index: 2000; }
+        #rename-dialog { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #333; padding: 20px; border-radius: 10px; color: white; }
+        #rename-input { padding: 10px; margin: 10px 0; width: 250px; border: none; border-radius: 5px; }
+        #rename-buttons { display: flex; gap: 10px; justify-content: center; }
+        #rename-confirm, #rename-cancel { padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; }
+        #rename-confirm { background-color: #4caf50; color: white; }
+        #rename-cancel { background-color: #757575; color: white; }
     </style>
 </head>
 <body>
     <!-- 1. 上傳介面 -->
     <div id="upload-container">
-        <label for="file-input" id="upload-label">點擊此處，選擇 Excel 檔案</label>
+        <label for="file-input" id="upload-label">點擊此處，選擇 Excel 檔案<br><small>或直接拖放檔案到此區域</small></label>
+        <div style="margin-top: 10px; font-size: 0.9em; color: #aaa; text-align: center;">
+            💡 提示：如果開啟的不是您要的資料夾，請在檔案選擇器中導航到正確位置
+        </div>
         <input type="file" id="file-input" accept=".xlsx">
+        
+        <!-- 載入已儲存檔案按鈕 -->
+        <button id="load-saved-btn" style="margin-top: 20px; padding: 12px 24px; background-color: #4caf50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1.1em;">
+            📂 載入已儲存的檔案
+        </button>
+        
+        <!-- 上傳頁面的檔案列表 -->
+        <div id="upload-file-list" style="display: none; margin-top: 20px; max-width: 400px; background-color: rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 15px;">
+            <h3 style="margin: 0 0 15px 0; color: white; text-align: center;">已儲存的檔案</h3>
+            <div id="upload-saved-files"></div>
+            <button id="close-list-btn" style="margin-top: 10px; padding: 8px 16px; background-color: #757575; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100%;">
+                關閉
+            </button>
+        </div>
+        
         <div id="loading-spinner">處理中，請稍候...</div>
+    </div>
+
+    <!-- 檔案管理器 -->
+    <div id="file-manager">
+        <h3>已儲存的檔案</h3>
+        <button id="save-current-btn" style="display: none;">儲存目前檔案</button>
+        <div id="saved-files-list"></div>
+    </div>
+
+    <!-- 檔案管理器切換按鈕 -->
+    <button id="toggle-manager-btn" style="display: none;">📁</button>
+
+    <!-- 重新命名對話框 -->
+    <div id="rename-modal">
+        <div id="rename-dialog">
+            <h3>重新命名檔案</h3>
+            <input type="text" id="rename-input" placeholder="輸入新的檔案名稱">
+            <div id="rename-buttons">
+                <button id="rename-confirm">確認</button>
+                <button id="rename-cancel">取消</button>
+            </div>
+        </div>
     </div>
 
     <!-- 2. 理牌助手介面 (所有東西都在這裡面) -->
@@ -54,7 +118,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function( ) {
+        document.addEventListener('DOMContentLoaded', function() {
             const fileInput = document.getElementById('file-input');
             const uploadContainer = document.getElementById('upload-container');
             const loadingSpinner = document.getElementById('loading-spinner');
@@ -67,20 +131,91 @@
             const speedSlider = document.getElementById('speed-slider');
             const speedValueSpan = document.getElementById('speed-value');
             const toggleAutoplayBtn = document.getElementById('toggle-autoplay-btn');
+            
+            // 檔案管理相關元素
+            const fileManager = document.getElementById('file-manager');
+            const toggleManagerBtn = document.getElementById('toggle-manager-btn');
+            const saveCurrentBtn = document.getElementById('save-current-btn');
+            const savedFilesList = document.getElementById('saved-files-list');
+            const renameModal = document.getElementById('rename-modal');
+            const renameInput = document.getElementById('rename-input');
+            const renameConfirm = document.getElementById('rename-confirm');
+            const renameCancel = document.getElementById('rename-cancel');
+            
+            // 上傳頁面的檔案列表相關元素
+            const loadSavedBtn = document.getElementById('load-saved-btn');
+            const uploadFileList = document.getElementById('upload-file-list');
+            const uploadSavedFiles = document.getElementById('upload-saved-files');
+            const closeListBtn = document.getElementById('close-list-btn');
+            
             let fullDeck = [];
             let currentIndex = -1;
             let autoplayTimer = null;
             let isAutoplaying = false;
+            let currentFileName = '';
+            let currentFileData = null;
+            let renamingFileId = null;
+            
+            // 事件監聽器
             fileInput.addEventListener('change', handleFileSelect);
             document.addEventListener('keydown', handleKeyPress);
             speedSlider.addEventListener('input', handleSpeedChange);
             toggleAutoplayBtn.addEventListener('click', toggleAutoplay);
-            async function handleFileSelect(event) {
-                const file = event.target.files[0];
-                if (!file) { return; }
+            toggleManagerBtn.addEventListener('click', toggleFileManager);
+            saveCurrentBtn.addEventListener('click', saveCurrentFile);
+            renameConfirm.addEventListener('click', confirmRename);
+            renameCancel.addEventListener('click', cancelRename);
+            loadSavedBtn.addEventListener('click', showUploadFileList);
+            closeListBtn.addEventListener('click', hideUploadFileList);
+            
+            // 拖放功能
+            const uploadLabel = document.getElementById('upload-label');
+            uploadLabel.addEventListener('dragover', handleDragOver);
+            uploadLabel.addEventListener('dragleave', handleDragLeave);
+            uploadLabel.addEventListener('drop', handleDrop);
+            
+            // 載入已儲存的檔案
+            loadSavedFiles();
+            updateUploadFileList();
+            
+            // 拖放處理函數
+            function handleDragOver(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadLabel.classList.add('drag-over');
+            }
+            
+            function handleDragLeave(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadLabel.classList.remove('drag-over');
+            }
+            
+            function handleDrop(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadLabel.classList.remove('drag-over');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const file = files[0];
+                    if (file.name.endsWith('.xlsx')) {
+                        processFile(file);
+                    } else {
+                        alert('請選擇 Excel 檔案 (.xlsx)');
+                    }
+                }
+            }
+            
+            async function processFile(file) {
                 uploadContainer.style.display = 'none';
                 loadingSpinner.style.display = 'block';
+                
                 try {
+                    // 儲存檔案資料
+                    currentFileName = file.name.replace('.xlsx', '');
+                    currentFileData = await file.arrayBuffer();
+                    
                     const deck = await parseExcelToDeck(file);
                     if (deck && deck.length > 0) {
                         startAssistant(deck);
@@ -94,6 +229,12 @@
                     loadingSpinner.style.display = 'none';
                 }
             }
+            
+            async function handleFileSelect(event) {
+                const file = event.target.files[0];
+                if (!file) { return; }
+                await processFile(file);
+            }
             async function parseExcelToDeck(file) {
                 const deck = [];
                 const reader = new FileReader();
@@ -103,8 +244,8 @@
                             const buffer = e.target.result;
                             const wb = new ExcelJS.Workbook();
                             await wb.xlsx.load(buffer);
-                            const ws = wb.getWorksheet('Preview');
-                            if (!ws) { throw new Error('找不到名為 "Preview" 的工作表。'); }
+                            let ws = wb.getWorksheet('預覽') || wb.getWorksheet('Preview');
+                            if (!ws) { throw new Error('找不到名為 "預覽" 或 "Preview" 的工作表。'); }
                             const COLS = 15, ROWS = 28;
                             for (let r = 1; r <= ROWS; r++) {
                                 for (let c = 1; c <= COLS; c++) {
@@ -143,6 +284,11 @@
                 loadingSpinner.style.display = 'none';
                 uploadContainer.style.display = 'none';
                 assistantContainer.style.display = 'flex';
+                
+                // 顯示檔案管理相關按鈕
+                toggleManagerBtn.style.display = 'block';
+                saveCurrentBtn.style.display = 'block';
+                
                 messageDiv.textContent = "按 [空白鍵] 或 [→] 手動下一張，或點擊下方按鈕開始自動播放";
                 updateCardDisplay();
             }
@@ -217,10 +363,16 @@
                 }
             }
             function speakCard(card) {
-                const backText = card.back === 'R' ? '紅底' : '藍底';
+                const backText = card.back === 'R' ? '紅底' : '黑底';
                 const suitTextMap = { '♠': '黑桃', '♥': '紅心', '♦': '方塊', '♣': '梅花' };
                 const suitText = suitTextMap[card.suit] || '';
-                const rankText = card.rank;
+                
+                // 數字10、J、Q、K都唸成「0」
+                let rankText = card.rank;
+                if (rankText === '10' || rankText === 'J' || rankText === 'Q' || rankText === 'K') {
+                    rankText = '0';
+                }
+                
                 const textToSpeak = `${backText}，${suitText} ${rankText}`;
                 speak(textToSpeak);
             }
@@ -232,6 +384,177 @@
                 utterance.pitch = 1.0;
                 window.speechSynthesis.speak(utterance);
             }
+            
+            // 檔案管理功能
+            function toggleFileManager() {
+                if (fileManager.style.display === 'none' || !fileManager.style.display) {
+                    fileManager.style.display = 'block';
+                    loadSavedFiles();
+                } else {
+                    fileManager.style.display = 'none';
+                }
+            }
+            
+            function saveCurrentFile() {
+                if (!currentFileData || !currentFileName) {
+                    alert('沒有可儲存的檔案');
+                    return;
+                }
+                
+                const fileId = Date.now().toString();
+                const savedFile = {
+                    id: fileId,
+                    name: currentFileName,
+                    data: Array.from(new Uint8Array(currentFileData)),
+                    savedDate: new Date().toLocaleString('zh-TW'),
+                    deck: fullDeck
+                };
+                
+                // 儲存到 localStorage
+                const savedFiles = JSON.parse(localStorage.getItem('savedExcelFiles') || '[]');
+                savedFiles.push(savedFile);
+                localStorage.setItem('savedExcelFiles', JSON.stringify(savedFiles));
+                
+                alert(`檔案 "${currentFileName}" 已儲存`);
+                loadSavedFiles();
+                updateUploadFileList();
+            }
+            
+            function loadSavedFiles() {
+                const savedFiles = JSON.parse(localStorage.getItem('savedExcelFiles') || '[]');
+                savedFilesList.innerHTML = '';
+                
+                savedFiles.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div class="file-name" onclick="loadSavedFile('${file.id}')">${file.name}</div>
+                        <div class="file-actions">
+                            <button class="file-btn rename-btn" onclick="startRename('${file.id}', '${file.name}')">重新命名</button>
+                            <button class="file-btn delete-btn" onclick="deleteSavedFile('${file.id}')">刪除</button>
+                        </div>
+                    `;
+                    savedFilesList.appendChild(fileItem);
+                });
+            }
+            
+            window.loadSavedFile = function(fileId) {
+                const savedFiles = JSON.parse(localStorage.getItem('savedExcelFiles') || '[]');
+                const file = savedFiles.find(f => f.id === fileId);
+                
+                if (file) {
+                    currentFileName = file.name;
+                    currentFileData = new Uint8Array(file.data).buffer;
+                    fullDeck = file.deck;
+                    currentIndex = 0;
+                    
+                    uploadContainer.style.display = 'none';
+                    loadingSpinner.style.display = 'none';
+                    assistantContainer.style.display = 'flex';
+                    toggleManagerBtn.style.display = 'block';
+                    saveCurrentBtn.style.display = 'block';
+                    fileManager.style.display = 'none';
+                    
+                    updateCardDisplay();
+                    messageDiv.textContent = `已載入檔案: ${file.name}`;
+                }
+            };
+            
+            window.startRename = function(fileId, currentName) {
+                renamingFileId = fileId;
+                renameInput.value = currentName;
+                renameModal.style.display = 'block';
+                renameInput.focus();
+            };
+            
+            function confirmRename() {
+                const newName = renameInput.value.trim();
+                if (!newName) {
+                    alert('請輸入檔案名稱');
+                    return;
+                }
+                
+                const savedFiles = JSON.parse(localStorage.getItem('savedExcelFiles') || '[]');
+                const fileIndex = savedFiles.findIndex(f => f.id === renamingFileId);
+                
+                if (fileIndex !== -1) {
+                    savedFiles[fileIndex].name = newName;
+                    localStorage.setItem('savedExcelFiles', JSON.stringify(savedFiles));
+                    loadSavedFiles();
+                }
+                
+                renameModal.style.display = 'none';
+                renamingFileId = null;
+            }
+            
+            function cancelRename() {
+                renameModal.style.display = 'none';
+                renamingFileId = null;
+            }
+            
+            window.deleteSavedFile = function(fileId) {
+                if (confirm('確定要刪除這個檔案嗎？')) {
+                    const savedFiles = JSON.parse(localStorage.getItem('savedExcelFiles') || '[]');
+                    const filteredFiles = savedFiles.filter(f => f.id !== fileId);
+                    localStorage.setItem('savedExcelFiles', JSON.stringify(filteredFiles));
+                    loadSavedFiles();
+                    updateUploadFileList();
+                }
+            };
+            
+            // 上傳頁面的檔案列表功能
+            function showUploadFileList() {
+                updateUploadFileList();
+                uploadFileList.style.display = 'block';
+                loadSavedBtn.style.display = 'none';
+            }
+            
+            function hideUploadFileList() {
+                uploadFileList.style.display = 'none';
+                loadSavedBtn.style.display = 'block';
+            }
+            
+            function updateUploadFileList() {
+                const savedFiles = JSON.parse(localStorage.getItem('savedExcelFiles') || '[]');
+                uploadSavedFiles.innerHTML = '';
+                
+                if (savedFiles.length === 0) {
+                    uploadSavedFiles.innerHTML = '<div style="text-align: center; color: #aaa; padding: 20px;">尚無已儲存的檔案</div>';
+                    return;
+                }
+                
+                savedFiles.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 10px; margin: 5px 0; background-color: rgba(255, 255, 255, 0.1); border-radius: 5px; cursor: pointer;';
+                    fileItem.innerHTML = `
+                        <div style="color: #4fc3f7; flex: 1;" onclick="loadSavedFileFromUpload('${file.id}')">${file.name}</div>
+                        <div style="font-size: 0.8em; color: #aaa;">${file.savedDate}</div>
+                    `;
+                    uploadSavedFiles.appendChild(fileItem);
+                });
+            }
+            
+            window.loadSavedFileFromUpload = function(fileId) {
+                const savedFiles = JSON.parse(localStorage.getItem('savedExcelFiles') || '[]');
+                const file = savedFiles.find(f => f.id === fileId);
+                
+                if (file) {
+                    currentFileName = file.name;
+                    currentFileData = new Uint8Array(file.data).buffer;
+                    fullDeck = file.deck;
+                    currentIndex = 0;
+                    
+                    // 隱藏上傳介面，顯示語音助手
+                    uploadContainer.style.display = 'none';
+                    loadingSpinner.style.display = 'none';
+                    assistantContainer.style.display = 'flex';
+                    toggleManagerBtn.style.display = 'block';
+                    saveCurrentBtn.style.display = 'block';
+                    
+                    updateCardDisplay();
+                    messageDiv.textContent = `已載入檔案: ${file.name}`;
+                }
+            };
         });
     </script>
 </body>

@@ -1,0 +1,239 @@
+/* ☀️ 淺色主題樣式檔案 */
+/* 
+   這個檔案專門放淺色模式的 CSS 樣式
+   當使用者切換到淺色模式時，會套用這些樣式
+   所有樣式都以 body.light-theme 為前綴，確保只在淺色模式下生效
+*/
+
+/* === 🎨 主要色彩變數定義 === */
+body.light-theme {
+    /* 背景色系 */
+    --bg-main: #f8fafc;          /* 主要背景色 - 淺灰藍 */
+    --bg-card: #ffffff;          /* 卡片背景色 - 純白 */
+    --bg-input: #ffffff;         /* 輸入框背景色 - 純白 */
+    
+    /* 邊框與分隔線 */
+    --border-color: #e2e8f0;     /* 邊框顏色 - 淺灰 */
+    
+    /* 文字顏色 */
+    --text-primary: #1a202c;     /* 主要文字 - 深灰 */
+    --text-secondary: #4a5568;   /* 次要文字 - 中灰 */
+    --text-muted: #718096;       /* 提示文字 - 淺灰 */
+    
+    /* 強調色系 */
+    --accent-blue: #3182ce;      /* 藍色強調 - 主要按鈕等 */
+    --accent-green: #38a169;     /* 綠色強調 - 確認按鈕等 */
+    --accent-red: #e53e3e;       /* 紅色強調 - 警告、錯誤等 */
+    --accent-yellow: #d69e2e;    /* 黃色強調 - 提醒等 */
+    
+    /* 陰影效果 */
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    
+    /* 其他輔助色 */
+    --soft: #f7fafc;             /* 柔和背景色 */
+    --card-bg: #ffffff;          /* 卡片背景色（備用） */
+    --muted: #718096;            /* 靜音色（備用） */
+    --text: #1a202c;             /* 文字色（備用） */
+    --bad: #e53e3e;              /* 錯誤色（備用） */
+}
+
+/* === 📊 表格樣式調整 === */
+
+/* 表格標題行樣式 */
+body.light-theme .table th {
+    background: #f7fafc !important;  /* 標題背景 - 淺灰藍 */
+    color: #2d3748;                  /* 標題文字 - 深灰 */
+}
+
+/* 表格內容格樣式 */
+body.light-theme .table td {
+    color: #2d3748;                  /* 內容文字 - 深灰 */
+}
+
+/* 表格條紋效果（偶數行） */
+body.light-theme .table tbody tr:nth-child(even) {
+    background-color: #f7fafc;       /* 偶數行背景 - 淺灰藍 */
+}
+
+/* === 🃏 牌格顏色調整 === */
+
+/* 紅色牌格樣式（紅心♥、方塊♦） */
+body.light-theme .cell.card-red {
+    background-color: #fed7d7;       /* 背景 - 淺粉紅 */
+    border-left: 1px solid #fc8181; /* 左邊框 - 粉紅 */
+    color: #742a2a;                  /* 文字 - 深紅 */
+}
+
+/* 藍色牌格樣式（黑桃♠、梅花♣） */
+body.light-theme .cell.card-blue {
+    background-color: #bee3f8;       /* 背景 - 淺藍 */
+    border-left: 1px solid #63b3ed; /* 左邊框 - 藍色 */
+    color: #2c5282;                  /* 文字 - 深藍 */
+}
+
+/* === 📋 表格卡片背景調整（左側1~6欄位） === */
+
+/* 紅色卡片背景（表格中的紅色牌） */
+body.light-theme .card-bg-red {
+    background-color: #fed7d7 !important; /* 背景 - 淺粉紅（強制覆蓋） */
+    border-left: 1px solid #fc8181;       /* 左邊框 - 粉紅 */
+    color: #742a2a;                        /* 文字 - 深紅 */
+}
+
+/* 藍色卡片背景（表格中的藍色牌） */
+body.light-theme .card-bg-blue {
+    background-color: #bee3f8 !important; /* 背景 - 淺藍（強制覆蓋） */
+    border-left: 1px solid #63b3ed;       /* 左邊框 - 藍色 */
+    color: #2c5282;                        /* 文字 - 深藍 */
+}
+
+/* === 📝 輸入框樣式調整 === */
+
+/* 數字輸入框和下拉選單 */
+body.light-theme input[type="number"],
+body.light-theme select {
+    background: #ffffff;             /* 背景 - 純白 */
+    border: 1px solid #cbd5e0;      /* 邊框 - 淺灰 */
+    color: #2d3748;                  /* 文字 - 深灰 */
+}
+
+/* 輸入框和下拉選單的焦點狀態 */
+body.light-theme input[type="number"]:focus,
+body.light-theme select:focus {
+    border-color: #3182ce;                        /* 焦點邊框 - 藍色 */
+    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.3); /* 焦點陰影 - 藍色光暈 */
+}
+
+/* === 🔘 按鈕樣式調整 === */
+
+/* 一般按鈕 */
+body.light-theme .btn {
+    background: #edf2f7;            /* 背景 - 淺灰 */
+    border-color: #cbd5e0;          /* 邊框 - 淺灰 */
+    color: #2d3748;                  /* 文字 - 深灰 */
+}
+
+/* 一般按鈕懸停效果 */
+body.light-theme .btn:hover {
+    background: #e2e8f0;            /* 懸停背景 - 較深的淺灰 */
+    border-color: #a0aec0;          /* 懸停邊框 - 中灰 */
+}
+
+/* 主要按鈕（藍色） */
+body.light-theme .btn-primary {
+    background: #3182ce;            /* 背景 - 藍色 */
+    border-color: #3182ce;          /* 邊框 - 藍色 */
+    color: white;                    /* 文字 - 白色 */
+}
+
+/* 主要按鈕懸停效果 */
+body.light-theme .btn-primary:hover {
+    background: #2c5282;            /* 懸停背景 - 深藍 */
+    border-color: #2c5282;          /* 懸停邊框 - 深藍 */
+}
+
+/* 確認按鈕（綠色） */
+body.light-theme .btn-confirm {
+    background: #38a169;            /* 背景 - 綠色 */
+    border-color: #38a169;          /* 邊框 - 綠色 */
+    color: white;                    /* 文字 - 白色 */
+}
+
+/* 確認按鈕懸停效果 */
+body.light-theme .btn-confirm:hover {
+    background: #2f855a;            /* 懸停背景 - 深綠 */
+    border-color: #2f855a;          /* 懸停邊框 - 深綠 */
+}
+
+/* === 🏷️ 統計徽章樣式調整 === */
+
+/* 一般統計徽章 */
+body.light-theme .bpt-chip {
+    background: #edf2f7;            /* 背景 - 淺灰 */
+    color: #2d3748;                  /* 文字 - 深灰 */
+    border: 1px solid #cbd5e0;      /* 邊框 - 淺灰 */
+}
+
+/* 莊家統計徽章（B = Banker） */
+body.light-theme .bpt-chip.b {
+    color: #e53e3e;                  /* 文字 - 紅色 */
+    background: #fed7d7;            /* 背景 - 淺粉紅 */
+}
+
+/* 閒家統計徽章（P = Player） */
+body.light-theme .bpt-chip.p {
+    color: #3182ce;                  /* 文字 - 藍色 */
+    background: #bee3f8;            /* 背景 - 淺藍 */
+}
+
+/* 和局統計徽章（T = Tie） */
+body.light-theme .bpt-chip.t {
+    color: #d69e2e;                  /* 文字 - 黃色 */
+    background: #fef5e7;            /* 背景 - 淺黃 */
+}
+
+/* === ⚠️ 警告區域樣式調整 === */
+
+/* 警告提示標籤 */
+body.light-theme .warn-chip {
+    background: #fed7d7;            /* 背景 - 淺粉紅 */
+    border-color: #fc8181;          /* 邊框 - 粉紅 */
+    color: #c53030;                  /* 文字 - 深紅 */
+}
+
+/* === 💬 狀態訊息樣式調整 === */
+
+/* 一般狀態訊息 */
+body.light-theme .status-message {
+    background: #bee3f8;            /* 背景 - 淺藍 */
+    color: #2c5282;                  /* 文字 - 深藍 */
+}
+
+/* 成功訊息 */
+body.light-theme .status-message.success {
+    background: #c6f6d5;            /* 背景 - 淺綠 */
+    color: #22543d;                  /* 文字 - 深綠 */
+}
+
+/* 警告訊息 */
+body.light-theme .status-message.warning {
+    background: #fef5e7;            /* 背景 - 淺黃 */
+    color: #744210;                  /* 文字 - 深黃褐 */
+}
+
+/* 錯誤訊息 */
+body.light-theme .status-message.error {
+    background: #fed7d7;            /* 背景 - 淺粉紅 */
+    color: #742a2a;                  /* 文字 - 深紅 */
+}
+
+/* === 🧮 浮動計算器樣式調整 === */
+
+/* 計算器主視窗 */
+body.light-theme .floating-widget {
+    background-color: #ffffff;           /* 背景 - 純白 */
+    border: 1px solid #cbd5e0;          /* 邊框 - 淺灰 */
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); /* 陰影 - 淺色陰影 */
+}
+
+/* 計算器輸入框 */
+body.light-theme .widget-content .card-input {
+    background-color: #f7fafc;          /* 背景 - 淺灰藍 */
+    border: 1px solid #cbd5e0;          /* 邊框 - 淺灰 */
+    color: #2d3748;                      /* 文字 - 深灰 */
+}
+
+/* 計算器輸入框焦點狀態 */
+body.light-theme .widget-content .card-input:focus {
+    border-color: #3182ce;                        /* 焦點邊框 - 藍色 */
+    box-shadow: 0 0 3px rgba(49, 130, 206, 0.4); /* 焦點陰影 - 藍色光暈 */
+}
+
+/* === 🔔 Toast 通知樣式調整 === */
+
+/* Toast 通知視窗 */
+body.light-theme .toast {
+    background: #ffffff;             /* 背景 - 純白 */
+    border: 1px solid #cbd5e0;      /* 邊框 - 淺灰 */
+    color: #2d3748;                  /* 文字 - 深灰 */
+}

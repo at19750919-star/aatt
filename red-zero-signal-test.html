@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>紅色0點牌訊號測試</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        .controls button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        .controls button:hover {
+            background: #0056b3;
+        }
+        .controls button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .rounds-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .rounds-table th,
+        .rounds-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: center;
+        }
+        .rounds-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        .s-round {
+            background: #fff3cd !important;
+        }
+        .red-zero {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .zero-card {
+            background: #d4edda;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>紅色0點牌訊號系統測試</h1>
+        
+        <div class="controls">
+            <button id="generateBtn">生成牌靴</button>
+            <button id="analyzeBtn" disabled>分析S局訊號</button>
+            <button id="clearBtn">清空</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <h3>總敏感局數</h3>
+                <div class="value" id="totalSensitive">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>S局數量</h3>
+                <div class="value" id="sRoundsCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>S局中0點牌</h3>
+                <div class="value" id="zeroInS">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>S局中紅色0點牌</h3>
+                <div class="value" id="redZeroInS">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>莊家局數</h3>
+                <div class="value" id="bankerCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>閒家局數</h3>
+                <div class="value" id="playerCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>和局數</h3>
+                <div class="value" id="tieCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>包含紅色0點局數</h3>
+                <div class="value" id="redZeroRounds">0</div>
+            </div>
+        </div>
+
+        <table class="rounds-table" id="roundsTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>局號</th>
+                    <th>類型</th>
+                    <th>卡牌</th>
+                    <th>結果</th>
+                    <th>下一局</th>
+                    <th>0點牌數</th>
+                    <th>紅色0點牌</th>
+                    <th>訊號值</th>
+                </tr>
+            </thead>
+            <tbody id="roundsBody">
+            </tbody>
+        </table>
+
+        <div class="log" id="logArea"></div>
+    </div>
+
+    <script src="red-zero-signal-test.js"></script>
+</body>
+</html>

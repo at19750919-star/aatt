@@ -1279,12 +1279,37 @@ const SUIT_SYMBOL_TO_LETTER = {};
 const SIGNAL_SUIT_COLOR = {};
 const SUIT_DISPLAY_NAME = {};
 const $ = (id) => document.getElementById(id);
-function toast(message) {
-const node = $('toast');
-if (!node) return;
-node.textContent = message;
-node.style.display = 'block';
-setTimeout(() => { node.style.display = 'none'; }, 2200);
+function toast(message, type = 'default') {
+  // 原有的 toast 顯示
+  const node = $('toast');
+  if (node) {
+    node.textContent = message;
+    node.style.display = 'block';
+    
+    // 根據類型添加不同的樣式
+    node.className = 'toast';
+    if (type === 'info') node.classList.add('toast-info');
+    else if (type === 'success') node.classList.add('toast-success');
+    else if (type === 'warning') node.classList.add('toast-warning');
+    else if (type === 'error') node.classList.add('toast-error');
+    
+    setTimeout(() => { node.style.display = 'none'; }, 2200);
+  }
+  
+  // 同時在狀態訊息區域顯示
+  const statusNode = $('statusMessage');
+  if (statusNode && message) {
+    statusNode.textContent = message;
+    statusNode.style.display = 'block';
+    statusNode.className = 'status-message success'; // toast 訊息通常是成功類型
+    
+    // 3秒後自動隱藏
+    setTimeout(() => {
+      if (statusNode) {
+        statusNode.style.display = 'none';
+      }
+    }, 3000);
+  }
 }
 function csvDownloadHref(name) { return `javascript:void(0);`; }
 // [CHN] 【AAA.JS 版本】從卡牌標籤中提取花色字母
@@ -1816,10 +1841,36 @@ function applyGenerateResponse(data) {
 
 // [CHN] 更新狀態訊息顯示的函式
 function updateStatus(message) {
-  const node = $('genInfo');
-  if (node) {
-    node.textContent = message;
+  // 舊的 genInfo 已隱藏，不再使用
+  // const node = $('genInfo');
+  // if (node) {
+  //   node.textContent = message;
+  // }
+  
+  // 新的狀態訊息顯示在左下角卡片
+  const statusNode = $('statusMessage');
+  if (statusNode && message) {
+    statusNode.textContent = message;
+    statusNode.style.display = 'block';
+    
+    // 根據訊息內容設定樣式
+    statusNode.className = 'status-message';
+    if (message.includes('完成') || message.includes('成功') || message.includes('complete')) {
+      statusNode.classList.add('success');
+    } else if (message.includes('失敗') || message.includes('錯誤') || message.includes('Failed')) {
+      statusNode.classList.add('error');
+    } else if (message.includes('Processing') || message.includes('Starting')) {
+      statusNode.classList.add('warning');
+    }
+    
+    // 5秒後自動隱藏
+    setTimeout(() => {
+      if (statusNode) {
+        statusNode.style.display = 'none';
+      }
+    }, 5000);
   }
+  
   console.log(message);
 }
 
@@ -2185,7 +2236,7 @@ function bindControls() {
 
   const btnExportCombined = $('btnExportCombined');
   if (btnExportCombined) {
-    btnExportCombined.addEventListener('click', exportRawDataToCSV);
+    btnExportCombined.addEventListener('click', exportCombinedToExcel);
   }
   
   const btnPreview = $('btnPreview');
@@ -2223,23 +2274,8 @@ if (floatingCalcButton) {
 // --- END: 綁定新的浮動計算機按鈕 ---
 
 
-  // --- 步驟 2: 動態創建編輯工具列 ---
-  const host = btnGen ? btnGen.parentElement : null;
-  if (host && !$('editToolbar')) {
-    host.insertAdjacentHTML('afterend', `
-      <div id="editToolbar" class="btn-row">
-        <button id="btnEdit" type="button" style="background-color: #667292;">編輯</button>
-        <button id="btnSwap" type="button" style="background-color: #667292;">卡交換</button>
-        <button id="btnRound" type="button" style="background-color: #667292;">局交換</button>
-        <button id="btnCancelEdit" type="button" style="background-color: #667292;">取消</button>
-        <button id="btnAutoSwap" type="button" style="background-color: #6667ab;">卡色</button>
-        <button id="btnApplyChanges" type="button" style="background-color: #6667ab;">套用</button>
-      </div>
-    `);
-  }
-
-  // --- 步驟 3: 在創建之後，才獲取並綁定這些動態按鈕 ---
-  // 將所有動態按鈕的獲取和綁定邏輯都移到這裡！
+  // --- 步驟 2: 綁定牌局微調卡片中的編輯按鈕 ---
+  // 將所有按鈕的獲取和綁定邏輯移到這裡！
   
   const btnAutoSwap = $('btnAutoSwap');
   if (btnAutoSwap) {
@@ -2264,6 +2300,15 @@ if (floatingCalcButton) {
         console.error(e);
         toast('自動交換失敗：' + e.message);
       }
+    });
+  }
+
+  // 紅0頁面按鈕 - 直接跳轉到獨立頁面
+  const btnRedZeroPage = $('btnRedZeroPage');
+  if (btnRedZeroPage) {
+    btnRedZeroPage.addEventListener('click', () => {
+      window.open('red-zero-signal-test.html', '_blank');
+      toast('已開啟紅色0點牌專用頁面', 'info');
     });
   }
 
@@ -2364,6 +2409,17 @@ if (floatingCalcButton) {
   function refreshSignalModeUI(){
     const mode = signalRuleSel && signalRuleSel.value ? signalRuleSel.value : 'suit';
     STATE.signalMode = mode;
+    
+    // 控制紅0頁面按鈕的顯示
+    const redZeroPageBtn = $('btnRedZeroPage');
+    if (redZeroPageBtn) {
+      if (mode === 'red0') {
+        redZeroPageBtn.style.display = 'inline-block';
+      } else {
+        redZeroPageBtn.style.display = 'none';
+      }
+    }
+    
     const btnAuto = $('btnAutoSwap');
     if (btnAuto) {
       if (mode === 'red0' || mode === 'zero0') { btnAuto.disabled = true; btnAuto.title = '此模式不需要卡色'; }
@@ -2742,3 +2798,219 @@ function pushSignal(msg){ (STATE.warnSignal ||= []).push(msg); renderWarningBloc
 function pushSwap(msg){ (STATE.warnSwap ||= []).push(msg); renderWarningBlocks(); }
 function clearSignal(){ STATE.warnSignal = []; renderWarningBlocks(); }
 function clearSwap(){ STATE.warnSwap = []; renderWarningBlocks(); }
+
+// 合併導出：將CSV數據和預覽網格合併為一個Excel檔案
+async function exportCombinedToExcel() {
+    try {
+        // 檢查必要數據
+        if (!INTERNAL_STATE.rounds || INTERNAL_STATE.rounds.length === 0) {
+            toast('沒有數據可導出。請先生成牌靴。');
+            return;
+        }
+        if (!STATE.previewCards || STATE.previewCards.length === 0) {
+            toast('沒有預覽資料可導出。請先按「套用」按鈕。');
+            return;
+        }
+        if (typeof ExcelJS === 'undefined' || !ExcelJS.Workbook) {
+            toast('ExcelJS 載入失敗，無法導出Excel');
+            return;
+        }
+
+        const wb = new ExcelJS.Workbook();
+
+        // === 工作表1：預覽（語音助手兼容，與原本Excel完全相同） ===
+        const ws1 = wb.addWorksheet('預覽');
+        
+        // 獲取預覽數據
+        const signalSelect = document.getElementById('signalSuit');
+        const signalValue = signalSelect ? signalSelect.value : null;
+        const previewRounds = (Array.isArray(STATE.previewRounds) && STATE.previewRounds.length)
+            ? STATE.previewRounds
+            : STATE.rounds;
+        const gridData = buildDeckGrid(STATE.previewCards, signalValue, previewRounds);
+        
+        const COLS = 15;
+        const ROWS = 28;
+        const MAX = COLS * ROWS;
+        const padded = gridData.slice(0, MAX);
+        while (padded.length < MAX) padded.push({ className: 'cell', value: '' });
+        
+        // 使用與原本exportPreviewToXLSX完全相同的設定
+        ws1.properties.defaultRowHeight = 36;
+        ws1.pageSetup = {
+          paperSize: 9,
+          orientation: 'portrait',
+          fitToPage: false,
+          scale: 170,
+          horizontalCentered: true,
+          verticalCentered: true,
+          margins: { left: 0.1, right: 0.1, top: 0.12, bottom: 0.12, header: 0.1, footer: 0.1 }
+        };
+        
+        // 每5欄插入空白間隔欄（與原本完全相同）
+        const GROUP = 5;
+        const SEP_COUNT = Math.floor((COLS - 1) / GROUP);
+        const TOTAL_COLS = COLS + SEP_COUNT;
+        const isSpacerCol = (sc) => (sc === 6 || sc === 12);
+        
+        for (let c = 1; c <= TOTAL_COLS; c++) {
+            ws1.getColumn(c).width = isSpacerCol(c) ? 1 : 4;
+        }
+        
+        const borderThin = { style: 'thin', color: { argb: 'FF333333' } };
+        const borderBold = { style: 'medium', color: { argb: 'FFFF4D4F' } };
+        
+        // 填入網格數據（與原本邏輯完全相同）
+        for (let r = 0; r < ROWS; r++) {
+            let sc = 1;
+            for (let c = 0; c < COLS; c++) {
+                if (isSpacerCol(sc)) sc++;
+                const cell = padded[r * COLS + c];
+                const wsCell = ws1.getCell(r + 1, sc);
+                wsCell.value = cell.value || '';
+                wsCell.alignment = { vertical: 'middle', horizontal: 'center' };
+                wsCell.font = { size: 22, bold: true };
+                wsCell.border = { top: borderThin, left: borderThin, bottom: borderThin, right: borderThin };
+                
+                // 顏色設定（與原本完全相同）
+                if (cell.className.includes('card-red')) {
+                    wsCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF676712' } };
+                } else if (cell.className.includes('card-blue')) {
+                    wsCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF041337' } };
+                }
+                
+                if (cell.className.includes('signal-match')) {
+                    wsCell.font = { ...wsCell.font, color: { argb: 'FFFF4D4F' } };
+                }
+                
+                // T框線（與原本完全相同）
+                if (cell.className.includes('tbox-left')) wsCell.border.left = borderBold;
+                if (cell.className.includes('tbox-right')) wsCell.border.right = borderBold;
+                if (cell.className.includes('tbox-top')) wsCell.border.top = borderBold;
+                if (cell.className.includes('tbox-bottom')) wsCell.border.bottom = borderBold;
+                
+                sc++;
+            }
+        }
+
+        // === 工作表2：原始數據（CSV內容） ===
+        const ws2 = wb.addWorksheet('原始數據');
+        
+        // 獲取與UI顯示一致的序列化數據
+        const [serialized_rounds] = _serialize_rounds_with_flags(INTERNAL_STATE.rounds, INTERNAL_STATE.tail);
+        
+        // 表頭
+        const headers = [
+            "局號", "段標", "色序", 
+            "卡片1", "卡片2", "卡片3", "卡片4", "卡片5", "卡片6",
+            "結果", "訊號"
+        ];
+        ws2.addRow(headers);
+        
+        // 設定表頭樣式
+        const headerRow = ws2.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F3FF' } };
+        
+        // 數據行
+        serialized_rounds.forEach((round, index) => {
+            const row = [];
+            row.push(index + 1); // 局號
+            row.push(round.segment_label);
+            row.push(round.color_seq);
+            
+            // 6張卡片
+            for (let i = 0; i < 6; i++) {
+                row.push(round.cards[i] ? round.cards[i].label : "");
+            }
+            
+            row.push(round.result);
+            
+            // 訊號判斷
+            const is_s = round.is_sidx;
+            const next_round = serialized_rounds[index + 1];
+            const is_t = (round.segment_label === 'A') && (next_round && ['和', 'Tie', 'T'].includes(next_round.result));
+            row.push(is_s ? "S" : (is_t ? "T" : ""));
+            
+            ws2.addRow(row);
+        });
+        
+        // 自動調整欄寬
+        ws2.columns.forEach(column => {
+            column.width = 12;
+        });
+        
+        // 導出檔案
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'br_complete_data.xlsx');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        toast('合併Excel檔案已導出成功！');
+        
+    } catch (err) {
+        console.error('合併導出失敗:', err);
+        toast(`合併導出失敗：${err.message}`);
+    }
+}
+
+// =============================================
+// 🎨 主題切換功能 - 簡單版
+// =============================================
+
+// 初始化主題切換功能
+function initThemeToggle() {
+    const themeToggle = document.getElementById('themeToggle');
+    const body = document.body;
+    
+    // 從 localStorage 讀取主題偏好
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    
+    // 設定初始主題
+    if (savedTheme === 'light') {
+        body.classList.add('light-theme');
+        themeToggle.textContent = '☀️';
+    } else {
+        body.classList.remove('light-theme');
+        themeToggle.textContent = '🌙';
+    }
+    
+    // 主題切換事件
+    themeToggle.addEventListener('click', () => {
+        const isLight = body.classList.contains('light-theme');
+        
+        if (isLight) {
+            // 切換到暗色模式
+            body.classList.remove('light-theme');
+            themeToggle.textContent = '🌙';
+            localStorage.setItem('theme', 'dark');
+            toast('已切換到暗色模式 🌙', 'info');
+        } else {
+            // 切換到淺色模式
+            body.classList.add('light-theme');
+            themeToggle.textContent = '☀️';
+            localStorage.setItem('theme', 'light');
+            toast('已切換到淺色模式 ☀️', 'info');
+        }
+    });
+    
+    // 鍵盤快捷鍵 Ctrl+T 切換主題
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 't') {
+            e.preventDefault();
+            themeToggle.click();
+        }
+    });
+}
+
+// 頁面載入完成後初始化主題切換
+document.addEventListener('DOMContentLoaded', () => {
+    initThemeToggle();
+});
