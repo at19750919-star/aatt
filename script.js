@@ -1,3 +1,4 @@
+
 // =============================================
 // --- START: waa.py translated logic ---
 // =============================================
@@ -1941,6 +1942,148 @@ async function generateShoe() {
     if (spinner) spinner.style.display = 'none';
   }
 }
+//===========================計算機==========================================
+// --- START: Floating Widget Functions ---
+function createFloatingWidget() {
+    if (document.getElementById('floatingAssistant')) return;
+    const widgetHTML = `
+        <div class="floating-widget" id="floatingAssistant">
+        <div class="widget-content">
+            <div class="widget-actions">
+                <button id="closeWidgetBtn" class="widget-action widget-close" type="button">關閉</button>
+                <button id="sim_reset-btn" class="widget-action widget-reset" type="button">清空</button>
+            </div>
+            <div class="card-inputs">
+                <input type="number" inputmode="numeric" class="card-input" id="sim_p1" min="0" max="9" placeholder="閒1">
+                <input type="number" inputmode="numeric" class="card-input" id="sim_b1" min="0" max="9" placeholder="莊1">
+                <input type="number" inputmode="numeric" class="card-input" id="sim_p2" min="0" max="9" placeholder="閒2">
+                <input type="number" inputmode="numeric" class="card-input" id="sim_b2" min="0" max="9" placeholder="莊2">
+                <input type="number" inputmode="numeric" class="card-input disabled" id="sim_p3" min="0" max="9" placeholder="閒3">
+                <input type="number" inputmode="numeric" class="card-input disabled" id="sim_b3" min="0" max="9" placeholder="莊3">
+            </div>
+            <div class="results">
+                <div class="result-strip">
+                    <span class="result-value metric-value result-player" id="sim_normal-p-points">---</span>
+                    <span class="result-value metric-value result-banker" id="sim_normal-b-points">---</span>
+                    <span class="result-value metric-value result-outcome" id="sim_normal-tie-result">---</span>
+                </div>
+                <div class="result-strip">
+                    <span class="result-value metric-value result-player" id="sim_swapped-p-points">---</span>
+                    <span class="result-value metric-value result-banker" id="sim_swapped-b-points">---</span>
+                    <span class="result-value metric-value result-outcome" id="sim_swapped-tie-result">---</span>
+                </div>
+            </div>
+        </div>
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', widgetHTML);
+    bindSimulatorLogic();
+    const widget = document.getElementById('floatingAssistant');
+    const closeBtn = document.getElementById('closeWidgetBtn');
+    if (closeBtn) closeBtn.onclick = () => widget.style.display = 'none';
+    let isDragging = false, offsetX = 0, offsetY = 0;
+    const startDrag = (e) => {
+        if (e.target.closest('.card-inputs') || e.target.closest('.result-strip') || e.target.closest('.widget-close') || e.target.id === 'sim_reset-btn') return;
+        isDragging = true;
+        offsetX = e.clientX - widget.offsetLeft;
+        offsetY = e.clientY - widget.offsetTop;
+        e.preventDefault();
+    };
+    const onDrag = (e) => {
+        if (!isDragging) return;
+        widget.style.left = `${e.clientX - offsetX}px`;
+        widget.style.top = `${e.clientY - offsetY}px`;
+    };
+    const stopDrag = () => { isDragging = false; };
+    widget.addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('mouseup', stopDrag);
+}
+function bindSimulatorLogic() {
+    const inputs = { p1: document.getElementById('sim_p1'), b1: document.getElementById('sim_b1'), p2: document.getElementById('sim_p2'), b2: document.getElementById('sim_b2'), p3: document.getElementById('sim_p3'), b3: document.getElementById('sim_b3') };
+    const resetButton = document.getElementById('sim_reset-btn');
+    const normalPPointsEl = document.getElementById('sim_normal-p-points');
+    const normalBPointsEl = document.getElementById('sim_normal-b-points');
+    const normalTieResultEl = document.getElementById('sim_normal-tie-result');
+    const swappedPPointsEl = document.getElementById('sim_swapped-p-points');
+    const swappedBPointsEl = document.getElementById('sim_swapped-b-points');
+    const swappedTieResultEl = document.getElementById('sim_swapped-tie-result');
+
+
+    // 【升級】計算函式現在會回傳莊閒點數
+                    function simulate(p1, b1, p2, b2, p3, b3) {
+            let p_tot = (p1 + p2) % 10, b_tot = (b1 + b2) % 10, natural = (p_tot >= 8 || b_tot >= 8), p3_val = null, needs_p3 = false, needs_b3 = false;
+            let final_p_tot = p_tot;
+            let final_b_tot = b_tot;
+            if (!natural) {
+                if (p_tot <= 5) { needs_p3 = true; if (p3 !== null) { p3_val = p3; final_p_tot = (p_tot + p3) % 10; } }
+                if (p3_val === null) { if (b_tot <= 5) { needs_b3 = true; if (b3 !== null) final_b_tot = (b_tot + b3) % 10; } }
+                else { const pt = p3_val; if (b_tot <= 2 || (b_tot === 3 && pt !== 8) || (b_tot === 4 && [2, 3, 4, 5, 6, 7].includes(pt)) || (b_tot === 5 && [4, 5, 6, 7].includes(pt)) || (b_tot === 6 && [6, 7].includes(pt))) needs_b3 = true; if (needs_b3 && b3 !== null) final_b_tot = (b_tot + b3) % 10; }
+            }
+            let result = (final_p_tot > final_b_tot) ? '閒' : ((final_b_tot > final_p_tot) ? '莊' : '和');
+            return { result, p_tot: final_p_tot, b_tot: final_b_tot, needs_p3, needs_b3 };
+        }
+
+
+
+    // 【升級】更新 UI 的函式
+    function updateUI() {
+        const values = {};
+        let allFourFilled = true;
+        Object.keys(inputs).forEach((key) => {
+            const parsed = parseInt(inputs[key].value, 10);
+            values[key] = Number.isNaN(parsed) ? null : parsed;
+            if (['p1', 'b1', 'p2', 'b2'].includes(key) && values[key] === null) allFourFilled = false;
+        });
+
+        inputs.p3.classList.add('disabled'); inputs.p3.classList.remove('highlight');
+        inputs.b3.classList.add('disabled'); inputs.b3.classList.remove('highlight');
+
+        const resetOutput = (el, extraClass) => {
+            el.textContent = '---';
+            el.className = `metric-value result-value ${extraClass}`.trim();
+        };
+
+        resetOutput(normalPPointsEl, 'result-player');
+        resetOutput(normalBPointsEl, 'result-banker');
+        resetOutput(normalTieResultEl, 'result-outcome');
+        resetOutput(swappedPPointsEl, 'result-player');
+        resetOutput(swappedBPointsEl, 'result-banker');
+        resetOutput(swappedTieResultEl, 'result-outcome');
+
+        if (!allFourFilled) return;
+
+        const normalSim = simulate(values.p1, values.b1, values.p2, values.b2, values.p3, values.b3);
+        const swappedSim = simulate(values.b1, values.p1, values.p2, values.b2, values.p3, values.b3);
+
+        const applyTotals = (playerEl, bankerEl, outcomeEl, sim) => {
+            playerEl.textContent = sim.p_tot;
+            bankerEl.textContent = sim.b_tot;
+            playerEl.className = 'metric-value result-value result-player';
+            bankerEl.className = 'metric-value result-value result-banker';
+            const winner = sim.p_tot > sim.b_tot ? '閒' : (sim.b_tot > sim.p_tot ? '莊' : '和');
+            outcomeEl.textContent = winner;
+            outcomeEl.className = `metric-value result-value result-outcome win-${winner === '莊' ? 'B' : (winner === '閒' ? 'P' : 'T')}`;
+        };
+
+        applyTotals(normalPPointsEl, normalBPointsEl, normalTieResultEl, normalSim);
+        applyTotals(swappedPPointsEl, swappedBPointsEl, swappedTieResultEl, swappedSim);
+
+        if (normalSim.needs_p3) {
+            inputs.p3.classList.remove('disabled');
+            if (values.p3 === null) inputs.p3.classList.add('highlight');
+        }
+        if (normalSim.needs_b3) {
+            inputs.b3.classList.remove('disabled');
+            if (values.b3 === null) inputs.b3.classList.add('highlight');
+        }
+    }
+    Object.values(inputs).forEach(input => { input.addEventListener('input', () => { if (input.value.length > 1) input.value = input.value.slice(0, 1); if (parseInt(input.value, 10) < 0 || parseInt(input.value, 10) > 9) input.value = ''; updateUI(); }); });
+    resetButton.addEventListener('click', () => { Object.values(inputs).forEach(input => input.value = ''); updateUI(); });
+    updateUI();
+}
+
+
 
 async function simulateCut() {
   if (!Array.isArray(INTERNAL_STATE.rounds) || INTERNAL_STATE.rounds.length === 0) {
@@ -2052,13 +2195,32 @@ function bindControls() {
   if (btnPreview) { btnPreview.addEventListener('click', () => openPreviewWindow(false)); }
   if (btnPrint) { btnPrint.addEventListener('click', () => openPreviewWindow(true)); }
   if (btnExportPreview) { btnExportPreview.addEventListener('click', exportPreviewToXLSX); }
-  const btnOpenAssistant = $('btnOpenAssistant');
+  // 呼叫函式來創建浮動視窗的 HTML 結構並綁定其內部邏輯
+createFloatingWidget();
+
+const btnOpenAssistant = $('btnOpenAssistant');
 if (btnOpenAssistant) {
     btnOpenAssistant.addEventListener('click', () => {
         window.open('assistant.html', '_blank');
     });
 }
+// --- START: 綁定新的浮動計算機按鈕 (安全追加) ---
 
+// 1. 呼叫函式來創建隱藏的浮動視窗 HTML 結構
+createFloatingWidget(); 
+
+// 2. 找到我們在 HTML 中新增的按鈕
+const floatingCalcButton = $('btnFloatingCalc'); 
+if (floatingCalcButton) {
+    // 3. 為這個新按鈕綁定點擊事件
+    floatingCalcButton.addEventListener('click', () => {
+        const widget = document.getElementById('floatingAssistant');
+        if (widget) {
+            widget.style.display = 'block'; // 點擊時，顯示浮動視窗
+        }
+    });
+}
+// --- END: 綁定新的浮動計算機按鈕 ---
 
 
   // --- 步驟 2: 動態創建編輯工具列 ---
