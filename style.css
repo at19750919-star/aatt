@@ -214,10 +214,13 @@ button{height:40px;padding:0 18px;border-radius:10px;border:1px solid #2a3342;ba
 .table-wrap{border:1px solid #ffffff12;border-radius:14px;overflow:auto;background:#0e1420;margin:0} 
 
 
-.table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums} 
+.table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;table-layout:fixed;} 
 
 
 .table th,.table td{border-bottom:1px solid #ffffff12;padding:1px 1px;text-align:center;white-space:nowrap;font-size:18px} 
+.table td:nth-child(3){text-align:left;padding-left:4px;}
+.card-strip{display:flex;justify-content:flex-start;gap:4px;flex-wrap:wrap;width:100%;align-items:flex-start;}
+.card-strip .card-label{display:inline-flex;}
 .table td.card-cell,.table td.color-seq{font-size:24px} 
 
 .table th:nth-child(3),
@@ -482,7 +485,7 @@ body {
     background: var(--bg-main);
     color: var(--text-primary);
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: 22px;
 }
 
 .container {
@@ -564,7 +567,7 @@ body {
 }
 
 .input-group-compact label {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 500;
     color: var(--text-secondary);
     white-space: nowrap;
@@ -575,7 +578,7 @@ body {
 .input-group-compact input,
 .input-group-compact select {
     padding: 2px 4px;                /* 🔧 最小化內邊距 */
-    font-size: 13px;
+    font-size: 16px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
     background: var(--bg-input);
@@ -1357,11 +1360,6 @@ input[type="number"]:focus, select:focus {
     gap: 4px;                        /* 🔧 修改此處：標籤與輸入框間距 */
 }
 
-/* 標籤文字 */
-.input-group-compact label {
-    font-size: 11px;                 /* 🔧 修改此處：標籤字體大小 */
-    height: 16px;                    /* 🔧 修改此處：標籤區域高度 */
-}
 
 /* 輸入框與下拉選單 */
 .input-group-compact input,
@@ -1665,3 +1663,34 @@ input[type="number"], select {
   💡 這些顏色變數定義在檔案頂部的 :root 區塊中
   🔧 修改變數值即可改變整體表格主題
 */
+
+/* 訊號設定按鈕樣式 */
+.theme-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.theme-toggle:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.theme-toggle:active {
+    transform: translateY(0) scale(0.98);
+}

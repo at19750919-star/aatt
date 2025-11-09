@@ -187,6 +187,7 @@ this.color = null;
 }
 point() { return CARD_VALUES[this.rank]; }
 short() { return `${this.rank}${this.suit}`; }
+isZero() { return this.point() === 0; }
 clone(newPos = this.pos) {
 const newCard = new Card(this.rank, this.suit, newPos);
 newCard.color = this.color;
@@ -273,9 +274,7 @@ function multi_pass_candidates_from_cards_simple(card_pool) {// 如果牌池少�
    
     return out;
 }
-/**
-* 根據 9999.txt 的 build_C_segments 邏輯，從剩餘牌組中提取完整的 B 段牌局 (B rounds)
-*/
+
 function build_B_and_C_segments_from_tail(tail_cards) {
 if (!tail_cards || tail_cards.length < 4) return { b_rounds: [], c_cards: tail_cards };
 const temp_deck = tail_cards.map((c, i) => c.clone(i));
@@ -437,7 +436,9 @@ function enforce_tie_signal_combined(final_rounds, tie_suit) { // 不再需要 d
     return locked_ids;
 }
 
-// =====================【V20 最終版 - 請完整替換此函式】=====================
+// ========================================================================
+// --- 【最終修正版 3】請用這段程式碼，替換 script.js 中的 apply_combined_rules_internal ---
+// ========================================================================
 function apply_combined_rules_internal(final_rounds, { signal_suit, tie_suit, late_diff }, log_attempt_failure) {
     let locked_ids = new Set();
 
@@ -450,75 +451,35 @@ function apply_combined_rules_internal(final_rounds, { signal_suit, tie_suit, la
         throw e;
     }
 
-    // 步驟 2: 處理S局訊號（可選規則）
+    // 步驟 2: 處理 S 局訊號
     try {
-        let mode = 'suit';
-        try {
-          const sel = document.getElementById('signalRule');
-          if (sel && sel.value) mode = sel.value;
-        } catch (e) { /* ignore */ }
-        if (typeof STATE !== 'undefined' && STATE.signalMode) mode = STATE.signalMode;
-
-        let signal_locked;
-        if (mode === 'red0' && typeof window.distribute_signals_evenly_redzero === 'function') {
-            // 先檢查 donors 是否足夠（紅0 數量 >= S 局數量），不足則丟錯重試
-            const s_indices_chk = new Set(compute_sidx_for_segment(final_rounds, 'A'));
-            const need = s_indices_chk.size;
-            const countRed0 = final_rounds.flatMap(r=>r.cards||[])
-              .reduce((t,c)=>{ const r=String(c.rank||'').toUpperCase(); const s=c.suit; const is0=(r==='10'||r==='J'||r==='Q'||r==='K'); const red=(s==='♥'||s==='♦'); return t + (is0&&red?1:0); },0);
-            if (countRed0 < need) {
-              const msg = `Red0 donors not enough: need ${need}, have ${countRed0}`;
-              log_attempt_failure(msg);
-              throw new Error(msg);
-            }
-            signal_locked = window.distribute_signals_evenly_redzero(final_rounds, locked_ids);
-        } else if (mode === 'zero0' && typeof window.distribute_signals_evenly_zeroany === 'function') {
-            // 0 點 donor 足量檢查
-            const s_indices_chk = new Set(compute_sidx_for_segment(final_rounds, 'A'));
-            const need = s_indices_chk.size;
-            const countZero = final_rounds.flatMap(r=>r.cards||[])
-              .reduce((t,c)=>{ const r=String(c.rank||'').toUpperCase(); return t + ((r==='10'||r==='J'||r==='Q'||r==='K')?1:0); },0);
-            if (countZero < need) {
-              const msg = `Zero donors not enough: need ${need}, have ${countZero}`;
-              log_attempt_failure(msg);
-              throw new Error(msg);
-            }
-            signal_locked = window.distribute_signals_evenly_zeroany(final_rounds, locked_ids);
-        } else {
-            signal_locked = distribute_signals_evenly(final_rounds, signal_suit, locked_ids);
-        }
+        const signal_locked = distribute_signals_evenly(final_rounds, signal_suit, locked_ids);
         locked_ids = new Set([...locked_ids, ...signal_locked]);
     } catch (e) {
         log_attempt_failure(`Even Distribution failed: ${e.message}`);
         throw e;
     }
 
-    // 步驟 4 (原步驟3): 最終強制驗證 (S局和T局的)
+    // 最終強制驗證
     const s_indices_final = compute_sidx_for_segment(final_rounds, 'A');
     for (const idx of s_indices_final) {
         const s_round = final_rounds[idx];
         const has_signal = s_round.cards.some(card => card.suit === signal_suit);
-        if (!has_signal) {
+
+        if (WAA_Logic.getConfig().HEART_SIGNAL_ENABLED && !has_signal) {
             const error_msg = `[驗證失敗] S局 #${idx + 1} ！`;
             log_attempt_failure(error_msg);
-            // 我們必須拋出這個錯誤，因為S局訊號的優先級是最高的
             throw new Error(error_msg);
         }
     }
-    console.log("[驗證成功] 所有S局均已包含訊號牌。");
+
+    if (WAA_Logic.getConfig().HEART_SIGNAL_ENABLED && s_indices_final.length > 0) {
+        console.log("[驗證成功] 所有S局均已包含訊號牌。");
+    }
 
     return final_rounds;
 }
 
-/**
- * [CHN] 【V8 最終完美版】均勻分配並集中訊號牌
- *      - 採用「補缺優先」和「均勻化」策略，確保訊號牌被合理地分配到所有S局。
- */
-// ====================================================================================
-// --- 【最終修正版 V2】請用這整段程式碼替換您現有的 distribute_signals_evenly 函式 ---
-// ====================================================================================
-// ====================================================================================
-// --- 【最終修正版 V4】請用這整段程式碼替換您現有的 distribute_signals_evenly 函式 ---
 // ====================================================================================
 function distribute_signals_evenly(final_rounds, signal_suit, locked_ids) {
     // 【V3 修正】在這裡重新定義一次，確保它在此作用域內絕對可用
@@ -835,7 +796,7 @@ if (sim_r) {
             const pt = p3.point();
             if (b_tot <= 2) draw();
             else if (b_tot === 3 && pt !== 8) draw();
-            else if (b_tot === 4 && [1,2,3,4,5,6].includes(pt)) draw();
+            else if (b_tot === 4 && [7,2,3,4,5,6].includes(pt)) draw();
             else if (b_tot === 5 && [4,5,6,7].includes(pt)) draw();
             else if (b_tot === 6 && [6, 7].includes(pt)) draw();
         }
@@ -912,10 +873,10 @@ serialized.forEach((row, idx) => {
 const is_idx = s_idx_positions.has(idx);
 row["is_sidx"] = is_idx;
 row["segment_label"] = ordered[idx].segment || ''; // III-A: 新增段位標籤
-const has_signal_suit = ordered[idx].cards.some(card => card.suit === signal_suit);
+const has_signal = ordered[idx].cards.some(card => card && card.suit === signal_suit);
 
         // 2. 如果這不是一個合規的S局 (is_idx 為 false)，但它卻包含了訊號花色
-        if (!is_idx && has_signal_suit && ordered[idx].segment === 'A') {
+        if (!is_idx && has_signal && ordered[idx].segment === 'A') {
             // 我們把它「偽裝」成一個不合規的S局，來觸發UI顯示紅色叉叉
             row["is_sidx"] = true;  // 標記為S類局
             row["s_idx_ok"] = false; // 標記為不合規
@@ -926,7 +887,9 @@ const has_signal_suit = ordered[idx].cards.some(card => card.suit === signal_sui
         if (ordered[idx].segment !== 'A') { row["s_idx_ok"] = false; return; }
         if (!is_idx) { row["s_idx_ok"] = false; return; }
         let ok = true;
-        if (signal_enabled && signal_suit) { ok = has_signal_suit; } // 重用上面計算的 has_signal_suit
+        if (signal_enabled && signal_suit) {
+          ok = has_signal;
+        }
         row["s_idx_ok"] = ok;
     });
  
@@ -981,13 +944,6 @@ function snapshotPreviewRounds() {
 // --- 【最終修正版】請用這整段程式碼替換您現有的 window.autoColorSwap 函式 ---
 // =================================================================================
 window.autoColorSwap = function autoColorSwap() {
-  // 紅0 模式時不執行卡色（避免與紅0訊號互相干擾）
-  try {
-    const sel = document.getElementById('signalRule');
-    const mode = sel && sel.value ? sel.value : (STATE && STATE.signalMode);
-    if (mode === 'red0') { toast('紅0 模式不需要卡色'); return; }
-  } catch (e) {}
-
   const rounds = INTERNAL_STATE.rounds;
   if (!Array.isArray(rounds) || rounds.length === 0) return;
 
@@ -1912,78 +1868,106 @@ function rebuildRoundsFromDeck(deck) {
   return { rounds, tail: tailCards };
 }
 
+// ========================================================================
+// --- 【最終修正版】請用這段程式碼，再次替換 script.js 中的 generateShoe ---
+// ========================================================================
 async function generateShoe() {
   const btn = $('btnGen');
   const spinner = $('spinGen');
   if (btn) btn.disabled = true;
   if (spinner) spinner.style.display = 'inline-block';
+  
   try {
-    // 清空兩類警示：創建時只會渲染花色訊號
     clearSignal();
     clearSwap();
     updateStatus('Starting...');
+
+    // 讀取 UI 設定
     const num_shoes = Number($('numShoes').value);
     const signal_rule = ($('signalRule') && $('signalRule').value) || 'suit';
-    const signal_suit = (signal_rule === 'red0' || signal_rule === 'backcolor' || signal_rule === 'zero0') ? '' : ($('signalSuit') ? $('signalSuit').value : '');
     const tie_signal_suit = $('tieSuit').value || '♣';
-    // 取得尾段輸入框的值
     const multi_pass_min_cards = Number($('multiPassMinCards').value) || 15;
+
+    // ================================================================
+    // 【核心修正點】根據 signal_rule 動態決定要傳遞的參數
+    // ================================================================
+    let signal_suit_for_logic;
+    let is_heart_signal_enabled;
+
+    if (signal_rule === 'zero0' || signal_rule === 'backcolor') {
+        // 如果是 0點 或 背色 模式，則【關閉】單一花色訊號
+        signal_suit_for_logic = ''; 
+        is_heart_signal_enabled = false;
+    } else {
+        // 否則，使用 UI 上選擇的花色
+        signal_suit_for_logic = ($('signalSuit') ? $('signalSuit').value : '');
+        is_heart_signal_enabled = true;
+    }
+    // ================================================================
+
+    // 使用修正後的參數來設定 WAA_Logic
     WAA_Logic.setConfig({
       NUM_SHOES: num_shoes,
-      HEART_SIGNAL_ENABLED: !(signal_rule === 'red0' || signal_rule === 'backcolor' || signal_rule === 'zero0'),
-      SIGNAL_SUIT: _normalize_suit_input(signal_suit),
+      HEART_SIGNAL_ENABLED: is_heart_signal_enabled, // <-- 使用修正後的變數
+      SIGNAL_SUIT: _normalize_suit_input(signal_suit_for_logic), // <-- 使用修正後的變數
       TIE_SIGNAL_SUIT: _normalize_suit_input(tie_signal_suit),
       MULTI_PASS_MIN_CARDS: multi_pass_min_cards
     });
+
     const current_config = WAA_Logic.getConfig();
     const waa_params = {
       max_attempts: current_config.MAX_ATTEMPTS,
+      signal_suit: _normalize_suit_input(signal_suit_for_logic), // <-- 使用修正後的變數
+      // ... 其他參數保持不變
       min_tail_stop: current_config.MIN_TAIL_STOP,
       multi_pass_min_cards: current_config.MULTI_PASS_MIN_CARDS,
       late_diff: current_config.LATE_BALANCE_DIFF,
-      signal_suit: _normalize_suit_input(signal_suit),
       tie_suit: _normalize_suit_input(tie_signal_suit),
       updateStatus: updateStatus,
       log_attempt_failure: log_attempt_failure
     };
-    const result = await WAA_Logic.generate_all_sensitive_shoe_or_retry(waa_params);
-    if (!result) {
-      toast(`創建失敗：請查看下方訊息或 F12 Console`);
 
+    // --- 後續邏輯完全不變 ---
+
+    const initial_result = await WAA_Logic.generate_all_sensitive_shoe_or_retry(waa_params);
+
+    if (!initial_result) {
+      toast(`創建失敗：請查看下方訊息或 F12 Console`);
       throw new Error("Generation failed after max attempts");
     }
-    const [rounds, tail, deck] = result;
+
+    let [rounds, tail, deck] = initial_result;
+
     if (!rounds || rounds.length === 0) {
       updateStatus('創建失敗：沒有生成任何敏感局');
       toast(`創建失敗：沒有生成任何敏感局`);
       throw new Error("No sensitive rounds");
     }
-    
-    // --- 數據處理與打包 ---
+
     const [serialized_rounds, ordered_rounds] = _serialize_rounds_with_flags(rounds, tail);
     const suit_counts = _suit_counts(ordered_rounds, tail);
     
-    // 將所有需要用到的數據打包，特別是 ordered_rounds (原始對象陣列)
     const data_for_ui = {
         rounds: serialized_rounds,
-        ordered_rounds: ordered_rounds, // <--- 確保傳遞原始數據
+        ordered_rounds: ordered_rounds,
         tail: tail,
         deck: deck,
         suit_counts: suit_counts,
         meta: { rounds_len: ordered_rounds.length, tail_len: tail.length, deck_len: deck.length }
     };
 
-    // 呼叫 UI 更新函式
     applyGenerateResponse(data_for_ui);
-    // 若為背色模式，生成後自動執行卡色（就近交換 BBBR/RRRB）
+
     try {
       if (signal_rule === 'backcolor' && typeof window.autoColorSwap === 'function') {
         window.autoColorSwap();
       }
     } catch (e) { console.warn('autoColorSwap after generate failed', e); }
+
     const count = (data_for_ui.rounds || []).length;
     toast(`牌靴已完成，共 ${count} 局`);
     updateStatus(`Generation complete. ${count} rounds.`);
+
   } catch (err) {
     console.error('創建時發生錯誤:', err);
     toast(`創建時發生錯誤：${err.message}`);
@@ -1993,6 +1977,8 @@ async function generateShoe() {
     if (spinner) spinner.style.display = 'none';
   }
 }
+
+
 //===========================計算機==========================================
 // --- START: Floating Widget Functions ---
 function createFloatingWidget() {
@@ -2304,14 +2290,6 @@ if (floatingCalcButton) {
   }
 
   // 紅0頁面按鈕 - 直接跳轉到獨立頁面
-  const btnRedZeroPage = $('btnRedZeroPage');
-  if (btnRedZeroPage) {
-    btnRedZeroPage.addEventListener('click', () => {
-      window.open('red-zero-signal-test.html', '_blank');
-      toast('已開啟紅色0點牌專用頁面', 'info');
-    });
-  }
-
   const btnEdit = $('btnEdit');
   const btnSwap = $('btnSwap');
   const btnRound = $('btnRound');
@@ -2405,30 +2383,20 @@ if (floatingCalcButton) {
     });
   }
 
-  // 訊號規則切換：紅0 模式時停用「卡色」按鈕
+  // 訊號規則切換：依模式調整按鈕狀態
   function refreshSignalModeUI(){
     const mode = signalRuleSel && signalRuleSel.value ? signalRuleSel.value : 'suit';
     STATE.signalMode = mode;
     
-    // 控制紅0頁面按鈕的顯示
-    const redZeroPageBtn = $('btnRedZeroPage');
-    if (redZeroPageBtn) {
-      if (mode === 'red0') {
-        redZeroPageBtn.style.display = 'inline-block';
-      } else {
-        redZeroPageBtn.style.display = 'none';
-      }
-    }
-    
     const btnAuto = $('btnAutoSwap');
     if (btnAuto) {
-      if (mode === 'red0' || mode === 'zero0') { btnAuto.disabled = true; btnAuto.title = '此模式不需要卡色'; }
+      if (mode === 'zero0') { btnAuto.disabled = true; btnAuto.title = '此模式不需要卡色'; }
       else { btnAuto.disabled = false; btnAuto.title = ''; }
     }
-    // 紅0 模式時關閉訊號花色選擇，避免誤用
+    // 特定模式停用訊號花色選擇，避免誤用
     const suitSel = $('signalSuit');
     if (suitSel) {
-      if (mode === 'red0' || mode === 'backcolor' || mode === 'zero0') { suitSel.disabled = true; suitSel.title = '此模式：訊號花色停用'; }
+      if (mode === 'backcolor' || mode === 'zero0') { suitSel.disabled = true; suitSel.title = '此模式：訊號花色停用'; }
       else { suitSel.disabled = false; suitSel.title = ''; }
     }
   }
@@ -2518,7 +2486,7 @@ if (document.readyState === 'loading') {
     'x': 'btnExportPreview', // Ctrl+X → Excel 匯出
   };
 
-  const helpText = '快捷鍵: Z=編輯, X=卡交換, K=卡色, A=套用, G=創建, V=預覽, Ctrl+X=Excel, U=導出, C=切牌, Esc=取消編輯, ?=說明';
+  const helpText = '快捷鍵: Z=編輯, X=卡交換, K=卡色, A=套用, G=創建, V=預覽, Ctrl+X=Excel, U=導出, C=切牌, Ctrl+S=訊號設定, Esc=取消編輯, ?=說明';
 
   document.addEventListener('keydown', (ev) => {
     // 在輸入情境時不觸發
@@ -2755,12 +2723,6 @@ async function exportPreviewToXLSX() {
 }
 
 
-
-
-
-
-
-
 // 新：分離兩種警示類型供不同面板使用
 STATE.warnSignal = [];
 STATE.warnSwap = [];
@@ -2962,56 +2924,96 @@ async function exportCombinedToExcel() {
 }
 
 // =============================================
-// 🎨 主題切換功能 - 簡單版
+// 🎨 訊號設定頁面跳轉功能 - 方案B:當前頁面切換
 // =============================================
 
-// 初始化主題切換功能
-function initThemeToggle() {
-    const themeToggle = document.getElementById('themeToggle');
-    const body = document.body;
+function initSignalConfigButton() {
+    const signalConfigBtn = document.getElementById('signalConfigBtn');
     
-    // 從 localStorage 讀取主題偏好
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    
-    // 設定初始主題
-    if (savedTheme === 'light') {
-        body.classList.add('light-theme');
-        themeToggle.textContent = '☀️';
-    } else {
-        body.classList.remove('light-theme');
-        themeToggle.textContent = '🌙';
+    if (!signalConfigBtn) {
+        console.warn('找不到訊號設定按鈕 #signalConfigBtn');
+        return;
     }
     
-    // 主題切換事件
-    themeToggle.addEventListener('click', () => {
-        const isLight = body.classList.contains('light-theme');
-        
-        if (isLight) {
-            // 切換到暗色模式
-            body.classList.remove('light-theme');
-            themeToggle.textContent = '🌙';
-            localStorage.setItem('theme', 'dark');
-            toast('已切換到暗色模式 🌙', 'info');
-        } else {
-            // 切換到淺色模式
-            body.classList.add('light-theme');
-            themeToggle.textContent = '☀️';
-            localStorage.setItem('theme', 'light');
-            toast('已切換到淺色模式 ☀️', 'info');
+    // 🔥 方案B:在當前頁面開啟,並保存當前狀態
+    signalConfigBtn.addEventListener('click', () => {
+        try {
+            // 1. 保存當前的牌局狀態到 localStorage
+            if (INTERNAL_STATE.rounds && INTERNAL_STATE.rounds.length > 0) {
+                const stateToSave = {
+                    rounds: INTERNAL_STATE.rounds,
+                    tail: INTERNAL_STATE.tail,
+                    deck: INTERNAL_STATE.deck,
+                    timestamp: Date.now(),
+                    signalMode: STATE.signalMode || 'suit'
+                };
+                
+                localStorage.setItem('br_saved_state', JSON.stringify(stateToSave));
+                console.log('✅ 當前狀態已保存到 localStorage');
+            }
+            
+            // 2. 跳轉到訊號設定頁面
+            window.location.href = 'signals.html';
+            
+        } catch (error) {
+            console.error('跳轉失敗:', error);
+            toast('跳轉失敗:' + error.message, 'error');
         }
     });
     
-    // 鍵盤快捷鍵 Ctrl+T 切換主題
+    // 鍵盤快捷鍵 Ctrl+S 開啟訊號設定
     document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.key === 't') {
+        if (e.ctrlKey && e.key === 's') {
             e.preventDefault();
-            themeToggle.click();
+            signalConfigBtn.click();
         }
     });
+    
+    console.log('✅ 訊號設定按鈕已初始化 (方案B:當前頁面切換)');
 }
 
-// 頁面載入完成後初始化主題切換
+// 頁面載入完成後初始化
 document.addEventListener('DOMContentLoaded', () => {
-    initThemeToggle();
+    initSignalConfigButton();
+    
+    // 🔥 新增:檢查是否從訊號設定頁面返回
+    checkAndRestoreState();
 });
 
+// =============================================
+// 🎨 訊號設定頁面跳轉功能 (取代原本的主題切換)
+// =============================================
+
+function initSignalConfigButton() {
+    const signalConfigBtn = document.getElementById('signalConfigBtn');
+    
+    if (!signalConfigBtn) {
+        console.warn('找不到訊號設定按鈕 #signalConfigBtn');
+        return;
+    }
+    
+    // 點擊時開啟 signals.html (紅0訊號設定頁面)
+    signalConfigBtn.addEventListener('click', () => {
+        // 方案A: 在新分頁開啟
+        window.open('signals.html', '_blank');
+        toast('已開啟訊號設定頁面 ⚙️', 'info');
+        
+        // 方案B: 在當前頁面開啟 (如果您希望替換當前頁面,取消註解下面這行)
+        // window.location.href = 'signals.html';
+    });
+    
+    // 鍵盤快捷鍵 Ctrl+S 開啟訊號設定
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            signalConfigBtn.click();
+        }
+    });
+    
+    console.log('✅ 訊號設定按鈕已初始化');
+}
+
+// 頁面載入完成後初始化
+document.addEventListener('DOMContentLoaded', () => {
+    initSignalConfigButton();
+});

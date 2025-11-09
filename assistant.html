@@ -64,6 +64,17 @@
             📂 載入已儲存的檔案
         </button>
         
+        <!-- 匯出/匯入按鈕 -->
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button id="export-data-btn" style="flex: 1; padding: 10px 20px; background-color: #ff9800; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1em;">
+                📤 匯出資料
+            </button>
+            <button id="import-data-btn" style="flex: 1; padding: 10px 20px; background-color: #2196f3; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1em;">
+                📥 匯入資料
+            </button>
+        </div>
+        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+        
         <!-- 上傳頁面的檔案列表 -->
         <div id="upload-file-list" style="display: none; margin-top: 20px; max-width: 400px; background-color: rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 15px;">
             <h3 style="margin: 0 0 15px 0; color: white; text-align: center;">已儲存的檔案</h3>
@@ -168,6 +179,72 @@
             loadSavedBtn.addEventListener('click', showUploadFileList);
             closeListBtn.addEventListener('click', hideUploadFileList);
             
+            
+            // 匯出/匯入功能
+            const exportDataBtn = document.getElementById('export-data-btn');
+            const importDataBtn = document.getElementById('import-data-btn');
+            const importFileInput = document.getElementById('import-file-input');
+            
+            // 匯出資料
+            exportDataBtn.addEventListener('click', function() {
+                const savedFiles = JSON.parse(localStorage.getItem('savedExcelFiles') || '[]');
+                if (savedFiles.length === 0) {
+                    alert('目前沒有已儲存的檔案');
+                    return;
+                }
+                
+                const dataStr = JSON.stringify(savedFiles, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'saved_excel_files_' + new Date().getTime() + '.json';
+                link.click();
+                URL.revokeObjectURL(url);
+                alert('資料已匯出！請將檔案傳送到手機後匯入。');
+            });
+            
+            // 點擊匯入按鈕
+            importDataBtn.addEventListener('click', function() {
+                importFileInput.click();
+            });
+            
+            // 處理匯入檔案
+            importFileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+                        if (!Array.isArray(importedData)) {
+                            throw new Error('檔案格式錯誤');
+                        }
+                        
+                        // 合併資料（避免覆蓋現有檔案）
+                        const existingFiles = JSON.parse(localStorage.getItem('savedExcelFiles') || '[]');
+                        const mergedFiles = [...existingFiles];
+                        
+                        importedData.forEach(importFile => {
+                            // 檢查是否已存在相同 ID 的檔案
+                            const exists = mergedFiles.find(f => f.id === importFile.id);
+                            if (!exists) {
+                                mergedFiles.push(importFile);
+                            }
+                        });
+                        
+                        localStorage.setItem('savedExcelFiles', JSON.stringify(mergedFiles));
+                        alert(`成功匯入 ${importedData.length} 個檔案！`);
+                        loadSavedFiles();
+                        updateUploadFileList();
+                    } catch (error) {
+                        alert('匯入失敗：' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+                importFileInput.value = ''; // 清空以便下次選擇
+            });
             // 拖放功能
             const uploadLabel = document.getElementById('upload-label');
             uploadLabel.addEventListener('dragover', handleDragOver);
@@ -256,13 +333,17 @@
                                     let backColor = null;
                                     if (fill && fill.fgColor && fill.fgColor.argb) {
                                         if (fill.fgColor.argb.toUpperCase() === 'FFFFFF00') backColor = 'R';
-                                        else if (fill.fgColor.argb.toUpperCase() === 'FF0080FF') backColor = 'B';
+                                        else if (fill.fgColor.argb.toUpperCase() === 'FF00FFFF') backColor = 'B';
                                     }
                                     if (!value && !backColor) continue;
                                     const font = cell.font;
                                     let suit = '♠';
                                     if (font && font.color && font.color.argb) {
-                                        if (font.color.argb.toUpperCase() === 'FFFF0000') suit = '♥';
+                                        const fontColor = font.color.argb.toUpperCase();
+                                        // 同時支援標準紅色(FFFF0000)和淺紅色(FFFF4D4F)
+                                        if (fontColor === 'FFFF0000' || fontColor === 'FFFF4D4F') {
+                                            suit = '♥';
+                                        }
                                     }
                                     let rank = value;
                                     if (value === '0') rank = 'K';
@@ -308,8 +389,8 @@
                 body.className = card.back === 'R' ? 'bg-red-card' : 'bg-blue-card';
                 rankDiv.textContent = card.rank;
                 suitDiv.textContent = card.suit;
-                rankDiv.className = (card.suit === '♥' || card.suit === '♦') ? 'font-red' : 'font-black';
-                suitDiv.className = (card.suit === '♥' || card.suit === '♦') ? 'font-red' : 'font-black';
+                rankDiv.className = "font-black";  // 所有字體都用黑色
+                suitDiv.className = "font-black";  // 所有花色都用黑色
                 statusDiv.textContent = `${currentIndex + 1} / ${fullDeck.length}`;
                 speakCard(card);
             }
@@ -364,8 +445,6 @@
             }
             function speakCard(card) {
                 const backText = card.back === 'R' ? '紅底' : '黑底';
-                const suitTextMap = { '♠': '黑桃', '♥': '紅心', '♦': '方塊', '♣': '梅花' };
-                const suitText = suitTextMap[card.suit] || '';
                 
                 // 數字10、J、Q、K都唸成「0」
                 let rankText = card.rank;
@@ -373,7 +452,18 @@
                     rankText = '0';
                 }
                 
-                const textToSpeak = `${backText}，${suitText} ${rankText}`;
+                // 判斷是否為紅色字體（訊號牌）
+                const isRedSignal = (card.suit === '♥');
+                
+                let textToSpeak;
+                if (isRedSignal) {
+                    // 紅色字體：唸「紅底，紅K」（使用逗號增加停頓）
+                    textToSpeak = `${backText}，，紅${rankText}`;  // 兩個逗號增加停頓時間
+                } else {
+                    // 黑色字體：唸「紅底，K」
+                    textToSpeak = `${backText}，，${rankText}`;  // 兩個逗號增加停頓時間
+                }
+                
                 speak(textToSpeak);
             }
             function speak(text) {

@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <!-- =================================================================== -->
+    <!-- === 1. 頁面基本設定 (Meta & Title) === -->
+    <!-- =================================================================== -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>紅色0點牌訊號測試</title>
+
+    <!-- =================================================================== -->
+    <!-- === 2. CSS 樣式區 (Styling) === -->
+    <!-- =================================================================== -->
+    <style>
+        /* --- 計算工具懸浮視窗 --- */
+        .floating-widget {
+            position: fixed;
+            top: 100px;
+            left: 100px;
+            background: #2c2c2c;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+            border: 1px solid #4a4a4a;
+            display: none;
+            width: auto;
+            min-width: 300px;
+            max-width: 380px;
+            padding: 6px;
+            z-index: 9999;
+        }
+        .widget-content {
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            color: #fff;
+        }
+        .widget-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .widget-action {
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #fff;
+            background: #3c3c3c;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        .widget-close { background: #555; }
+        .widget-close:hover { background: #6d6d6d; }
+        .widget-reset { background: #d9534f; flex: 1; }
+        .widget-reset:hover { background: #c9302c; }
+        .widget-content .card-inputs {
+            display: grid;
+            grid-template-columns: repeat(6, 44px);
+            gap: 4px;
+            justify-content: center;
+        }
+        .widget-content .card-input {
+            width: 44px;
+            height: 32px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 600;
+            background: #343434;
+            border: 1px solid #555;
+            color: #fff;
+            border-radius: 5px;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+            padding: 0;
+        }
+        .widget-content .card-input:focus {
+            outline: none;
+            border-color: #66aaff;
+            box-shadow: 0 0 3px rgba(102, 170, 255, 0.4);
+        }
+        .widget-content .card-input.disabled {
+            background: #1f1f1f;
+            border-color: #333;
+            color: #666;
+            pointer-events: none;
+        }
+        .widget-content .card-input.highlight {
+            border-color: #ffcc00;
+            background: #4d462f;
+        }
+        .widget-content .results {
+            display: grid;
+            gap: 6px;
+        }
+        .widget-content .result-strip {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+            background: #2f2f2f;
+            border-radius: 8px;
+            padding: 6px;
+        }
+        .widget-content .result-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #fff;
+            text-align: center;
+            padding: 6px 0;
+            border-radius: 6px;
+            background: #3f3f3f;
+        }
+        .widget-content .result-player { color: #73b4ff; background: #2c3648; }
+        .widget-content .result-banker { color: #ff8673; background: #3f2930; }
+        .widget-content .result-outcome { color: #fff; }
+        .widget-content .result-value.win-B { background: #d9534f; color: #fff; }
+        .widget-content .result-value.win-P { background: #428bca; color: #fff; }
+        .widget-content .result-value.win-T { background: #5cb85c; color: #041904; }
+
+        /* --- 全域與基礎佈局 --- */
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif; /* 設定網站預設字體 */
+            margin: 0; /* 移除頁面預設邊距 */
+            background: #f5f5f5; /* 設定頁面背景為淺灰色 */
+        }
+        .container {
+            width: 100%; /* 主要內容區塊寬度佔滿 */
+            margin: 0; /* 移除邊距 */
+            background: white; /* 內容區塊背景為白色 */
+            padding: 20px; /* 內容區塊的內邊距 */
+            box-sizing: border-box; /* 讓 padding 不會撐大區塊寬度 */
+        }
+
+        /* --- 主要功能區塊 (例如創建區、編輯區) --- */
+        .controls {
+            margin-bottom: 20px; /* 區塊之間的下方間距 */
+            padding: 15px; /* 區塊的內邊距 */
+            background: #f8f9fa; /* 區塊背景色 */
+            border-radius: 6px; /* 區塊的圓角 */
+        }
+        .controls h3 {
+            margin-top: 0; /* 移除標題的上方間距 */
+            border-bottom: 1px solid #dee2e6; /* 標題下方的分隔線 */
+            padding-bottom: 10px; /* 標題與內容的間距 */
+            margin-bottom: 15px; /* 標題與內容的間距 */
+        }
+
+        /* --- 按鈕樣式 --- */
+        /* 一般功能按鈕 (例如生成牌靴) */
+        .controls button {
+            padding: 10px 20px; /* 按鈕的內邊距 (上下/左右) */
+            margin-right: 10px; /* 按鈕之間的右邊距 */
+            border: none; /* 移除邊框 */
+            border-radius: 4px; /* 按鈕圓角 */
+            background: #007bff; /* 按鈕背景色 (藍色) */
+            color: white; /* 文字顏色 */
+            cursor: pointer; /* 滑鼠移上去時顯示手形指標 */
+        }
+        .controls button:hover {
+            background: #0056b3; /* 滑鼠懸停時的背景色 */
+        }
+        .controls button:disabled {
+            background: #ccc; /* 按鈕被禁用時的背景色 */
+            cursor: not-allowed; /* 禁用時的滑鼠指標 */
+        }
+        /* 快速選擇按鈕 (例如全選、清空) */
+        .quick-btn {
+            padding: 4px 8px;
+            margin: 2px 4px;
+            background: #6c757d; /* 灰色背景 */
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px; /* 較小的字體 */
+        }
+        .quick-btn:hover {
+            background: #5a6268;
+        }
+        .control-inline {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .control-inline label {
+            margin-bottom: 0;
+            font-weight: 600;
+        }
+        .quick-btn-group {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .rank-checkboxes {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        /* --- 牌靴網格 --- */
+        .mini-grid-wrapper {
+            margin: 12px 0;
+            border: 1px solid #ced4da;
+            border-radius: 10px;
+            background: #0f1424;
+            overflow: hidden;
+        }
+        .grid-preview {
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            gap: 0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .grid-preview.mini {
+            max-height: none;
+            overflow-y: visible;
+        }
+        .grid-preview .cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.05);
+            background: #0e1420;
+            color: #e6eef8;
+        }
+        .grid-preview .cell.card-red { background-color: #f8d7da; color: #92000f; }
+        .grid-preview .cell.card-blue { background-color: #d4e9ff; color: #0b3c7e; }
+        .grid-preview .cell.signal-match { color: #ff4d4f; font-weight: 700; }
+        .grid-preview .cell.tbox-left { border-left: 2px solid #ff4d4f; }
+        .grid-preview .cell.tbox-right { border-right: 2px solid #ff4d4f; }
+        .grid-preview .cell.tbox-top { border-top: 2px solid #ff4d4f; }
+        .grid-preview .cell.tbox-bottom { border-bottom: 2px solid #ff4d4f; }
+        .grid-preview .cell.segment-b { opacity: 0.9; }
+        .grid-preview .cell.segment-c { opacity: 0.7; }
+        .grid-placeholder {
+            text-align: center;
+            padding: 20px;
+            font-size: 13px;
+            color: #adb5bd;
+        }
+
+        /* --- 統計數據卡片 --- */
+        .stats {
+            display: grid; /* 使用格線佈局 */
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); /* 自適應欄位數量 */
+            gap: 10px; /* 卡片之間的間距 */
+            margin-bottom: 16px;
+        }
+        .stat-card {
+            padding: 10px 12px;
+            background: #e9ecef; /* 卡片背景色 */
+            border-radius: 6px;
+            text-align: center; /* 文字置中 */
+        }
+        .stat-card h3 {
+            margin: 0 0 6px 0;
+            color: #495057;
+            font-size: 14px;
+            border: none; /* 移除卡片內的標題底線 */
+        }
+        .stat-card .value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #28a745; /* 數值文字顏色 (綠色) */
+        }
+
+        /* --- 結果顯示表格 --- */
+        .rounds-table {
+            width: 100%;
+            border-collapse: collapse; /* 讓儲存格邊框合併 */
+            margin-top: 20px;
+        }
+        .rounds-table th,
+        .rounds-table td {
+            border: 1px solid #dee2e6; /* 表格邊框顏色 */
+            padding: 2px; /* 儲存格內邊距 */
+            text-align: center;
+        }
+        .rounds-table th {
+            background: #f8f9fa; /* 表頭背景色 */
+            font-weight: bold;
+        }
+
+        /* --- 表格內的特殊元素樣式 --- */
+        /* 「卡色」欄位的小方塊 */
+        .color-chips { display: inline-flex; gap: 4px; }
+        .color-chip { display: inline-block; width: 24px; height: 24px; line-height: 24px; border-radius: 4px; font-size: 18px; font-weight: bold; color: #fff; }
+        .color-chip.red { background: #dc3545; } /* 紅色方塊 */
+        .color-chip.blue { background: #007bff; } /* 藍色方塊 */
+        .color-chip.unknown { background: #adb5bd; color: #212529; } /* 未知方塊 */
+
+        /* 「卡牌」欄位的標籤 */
+        .card-label { display: inline-block; margin: 0 2px 2px 0; padding: 2px 2px; border-radius: 4px; background: #f1f3f5; color: #6c757d; font-size: 16px; transition: color 0.2s ease; }
+        .card-label.s-signal-card { color: #c62828; font-weight: 600; }
+        .card-label.non-s-signal-card { color: #6c757d; }
+        .card-back-blue { background: #d4e9ff !important; } /* 藍背卡牌背景 (加上 !important 確保優先級) */
+        .card-back-red { background: #f8d7da !important; } /* 紅背卡牌背景 (加上 !important 確保優先級) */
+        .card-back-unknown { background: #dee2e6; } /* 未知卡背背景 */
+
+        /* --- 特殊狀態高亮 --- */
+        .two-pairs-round { background: #e7f3ff !important; } /* 「兩對」局的整行高亮 */
+        .red-zero { color: #92000f; font-weight: bold; } /* 「訊號牌」的文字高亮 (深紅色) */
+        .zero-card { background: #d4edda; } /* (備用) 訊號牌背景色 */
+        .result-banker { color: #dc3545; font-weight: bold; } /* 「莊」結果高亮 */
+        .result-player { color: #007bff; font-weight: bold; } /* 「閒」結果高亮 */
+        .result-tie { color: #28a745; font-weight: bold; } /* 「和」結果高亮 */
+
+        /* --- 日誌、懸浮按鈕與編輯工具列 --- */
+        .results-split { display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch; }
+        .left-pane { flex: 6 1 0; min-width: 0; }
+        .right-pane { flex: 4 1 0; min-width: 260px; max-width: none; }
+        .log { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 16px; min-height: 420px; max-height: 80vh; overflow-y: auto; font-family: monospace; font-size: 13px; line-height: 1.45; }
+        .log .success { color: #28a745; } /* 成功日誌 */
+        .log .error { color: #dc3545; } /* 錯誤日誌 */
+        .log .info { color: #17a2b8; } /* 資訊日誌 */
+        .back-to-main { position: fixed; top: 20px; right: 20px; left: auto; width: 48px; height: 48px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, 0.2); background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); transition: all 0.3s ease; z-index: 9999; }
+        .back-to-main:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4); }
+        .panel-dark { background: #23283a; color: #f1f5ff; border-radius: 12px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); padding: 16px 20px; margin-bottom: 18px; }
+        .edit-buttons { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .edit-buttons .btn, .tool-buttons .btn { padding: 8px 18px; border-radius: 8px; border: none; font-size: 15px; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease; background: rgba(255,255,255,0.08); color: #f5f7ff; }
+        .edit-buttons .btn:hover:not(:disabled), .tool-buttons .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,0.25); }
+        .edit-buttons .btn:disabled, .tool-buttons .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .edit-buttons .btn.secondary, .tool-buttons .btn.secondary { background: rgba(255,255,255,0.04); }
+        .edit-buttons .btn.primary { background: linear-gradient(135deg, #2ed573 0%, #1dd1a1 100%); color: #0b1f16; font-weight: 600; }
+        .edit-buttons .btn.alert, .tool-buttons .btn.alert { background: rgba(245, 61, 86, 0.25); color: #ff6b81; }
+        .edit-buttons .btn.active { box-shadow: 0 0 0 2px rgba(46,213,115,0.45), 0 6px 16px rgba(0,0,0,0.28); transform: translateY(-1px); }
+        .tool-buttons { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+        .tool-buttons .input-inline { display: inline-flex; align-items: center; background: rgba(255,255,255,0.08); padding: 6px 10px; border-radius: 6px; color: #cdd6f4; }
+        .tool-buttons .input-inline input { background: transparent; border: none; outline: none; width: 80px; color: #fff; font-size: 15px; margin-left: 8px; }
+        .hotkey-info { display: flex; flex-wrap: wrap; gap: 8px 14px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); font-size: 13px; line-height: 1.4; }
+        .hotkey-info .hotkey-item { display: flex; align-items: center; gap: 6px; color: rgba(241,245,255,0.78); }
+        .hotkey-info .hotkey-key { display: inline-flex; align-items: center; justify-content: center; padding: 2px 8px; border-radius: 5px; background: rgba(255,255,255,0.12); color: #fff; font-family: "JetBrains Mono", monospace; font-size: 12px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
+        @media (max-width: 900px) {
+            .left-pane, .right-pane { flex: 1 1 100%; }
+            .log { min-height: 300px; max-height: none; }
+        }
+        .card-label.selected-first { box-shadow: 0 0 0 2px rgba(255,214,102,0.9); border-radius: 6px; background: rgba(255,214,102,0.15); }
+        .card-label.selected-second { box-shadow: 0 0 0 2px rgba(105,192,255,0.9); border-radius: 6px; background: rgba(105,192,255,0.12); }
+        .round-row.selected-first { outline: 3px solid rgba(255,214,102,0.85); }
+        .round-row.selected-second { outline: 3px solid rgba(105,192,255,0.85); }
+        .signal-summary { margin-top: 16px; }
+        .signal-summary .summary-title { font-size: 15px; color: rgba(255,255,255,0.72); margin-bottom: 8px; letter-spacing: 0.5px; }
+        .signal-summary .stats-table { width: 100%; border-collapse: collapse; background: rgba(31, 37, 58, 0.95); border-radius: 10px; overflow: hidden; font-size: 14px; color: #e6ecff; }
+        .signal-summary .stats-table thead { background: rgba(255,255,255,0.06); }
+        .signal-summary .stats-table th,
+        .signal-summary .stats-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); white-space: nowrap; }
+        .signal-summary .stats-table td:first-child,
+        .signal-summary .stats-table th:first-child { text-align: left; padding-left: 12px; }
+        .signal-summary .stats-table td:last-child,
+        .signal-summary .stats-table th:last-child { background: rgba(255,215,115,0.12); color: #ffda79; font-weight: 600; }
+        .signal-summary .stats-table tr:last-child td { border-bottom: none; }
+        .signal-summary .stats-total { margin-top: 8px; font-size: 13px; color: rgba(255,255,255,0.7); text-align: right; }
+        .signal-summary .stats-total strong { color: #ffda79; }
+
+        /* --- 花色選擇圓形按鈕 --- */
+        .suit-selector { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
+        .suit-button { font-family: Georgia, Verdana, sans-serif; font-size: 35px; font-weight: bold; height: 55px; width: 55px; border-radius: 50%; border: solid 1px #ccc; background-color: #ffffff; box-shadow: inset 0px 2px 8px -4px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; transition: all 0.2s ease; }
+        .suit-button.黑桃 { color: #113285; }
+        .suit-button.愛心 { color: #E83015; }
+        .suit-button.方塊 { color: #E98B2A; }
+        .suit-button.梅花 { color: #4A593D; }
+        .suit-button.selected { color: #ffffff !important; border-width: 2px; transform: scale(1.05); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .suit-button.黑桃.selected { background-color: #113285; border-color: #0b225a; }
+        .suit-button.愛心.selected { background-color: #E83015; border-color: #b82611; }
+        .suit-button.方塊.selected { background-color: #E98B2A; border-color: #b96e21; }
+        .suit-button.梅花.selected { background-color: #4A593D; border-color: #35412d; }
+        .suit-button:active { transform: scale(1); top: 1px; }
+
+        
+    </style>
+
+    <!-- Excel 匯出套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+</head>
+<body>
+    <!-- =================================================================== -->
+    <!-- === 3. 頁面主體內容 (Body) === -->
+    <!-- =================================================================== -->
+
+    <!-- 懸浮按鈕：返回主頁 -->
+    <button class="back-to-main" id="backToMain" title="返回主頁">🏠</button>
+    
+    <!-- 主要內容容器 -->
+    <div class="container">
+        
+        <!-- 區塊一：創建區 -->
+        <div class="controls">
+            
+            <!-- S局訊號設定 -->
+            <div style="margin-bottom: 15px;">
+                <label><strong>S局訊號設定：</strong></label>
+                <div style="padding-left: 15px; margin-top: 5px;">
+                    <!-- 花色選擇 -->
+                    <div class="control-inline">
+                        <label>花色選擇：</label>
+                        <div class="quick-btn-group">
+                            <button type="button" class="quick-btn" onclick="selectAllSuits()">全選</button>
+                            <button type="button" class="quick-btn" onclick="clearAllSuits()">清空</button>
+                            <button type="button" class="quick-btn" onclick="selectRedSuits()">紅色</button>
+                        </div>
+                        <div class="suit-selector">
+                            <a class="suit-button 黑桃" data-value="♠">♠</a>
+                            <a class="suit-button 愛心" data-value="♥">♥</a>
+                            <a class="suit-button 方塊" data-value="♦">♦</a>
+                            <a class="suit-button 梅花" data-value="♣">♣</a>
+                        </div>
+                    </div>
+                    <!-- 數字選擇 -->
+                    <div class="control-inline" style="margin-top: 10px;">
+                        <label>數字選擇：</label>
+                        <div class="quick-btn-group">
+                            <button type="button" class="quick-btn" onclick="selectAllRanks()">全選</button>
+                            <button type="button" class="quick-btn" onclick="clearAllRanks()">清空</button>
+                            <button type="button" class="quick-btn" onclick="selectZeroRanks()">0點牌</button>  
+                        </div>
+                        <div class="rank-checkboxes">
+                            <label><input type="checkbox" value="A" class="rank-checkbox"> A</label>
+                            <label><input type="checkbox" value="2" class="rank-checkbox"> 2</label>
+                            <label><input type="checkbox" value="3" class="rank-checkbox"> 3</label>
+                            <label><input type="checkbox" value="4" class="rank-checkbox"> 4</label>
+                            <label><input type="checkbox" value="5" class="rank-checkbox"> 5</label>
+                            <label><input type="checkbox" value="6" class="rank-checkbox"> 6</label>
+                            <label><input type="checkbox" value="7" class="rank-checkbox"> 7</label>
+                            <label><input type="checkbox" value="8" class="rank-checkbox"> 8</label>
+                            <label><input type="checkbox" value="9" class="rank-checkbox"> 9</label>
+                            <label><input type="checkbox" value="10" class="rank-checkbox"> 10</label>
+                            <label><input type="checkbox" value="J" class="rank-checkbox"> J</label>
+                            <label><input type="checkbox" value="Q" class="rank-checkbox"> Q</label>
+                            <label><input type="checkbox" value="K" class="rank-checkbox"> K</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- T局訊號設定 -->
+            <div style="margin-bottom: 20px;">
+                <label><strong>T局訊號設定：</strong></label>
+                <div style="padding-left: 15px; margin-top: 5px;">
+                    <label><input type="radio" name="tSignalType" value="twoPairs" checked> 兩對</label>
+                </div>
+            </div>
+
+            <!-- 創建區的主要操作按鈕 -->
+            <button id="generateBtn">生成牌靴</button>
+            <button id="applyConfigBtn">應用設定</button>
+            <strong>訊號牌張數：<span id="signalCardCount" style="color: #28a745; font-size: 18px;">0</span> 張</strong>
+        </div>
+
+        <!-- 區塊二：編輯區 -->
+        <div class="panel-dark">
+            <div class="edit-buttons">
+                <button class="btn" id="btnEdit" disabled>編輯</button>
+                <button class="btn" id="btnSwap" disabled>卡交換</button>
+                <button class="btn" id="btnRound" disabled>局交換</button>
+                <button class="btn" id="btnAutoColor" disabled>卡色</button>
+                <button class="btn secondary" id="btnCancelEdit" disabled>取消</button>
+                <button class="btn primary" id="btnApplyChanges" disabled>套用</button>
+                <button class="btn alert" id="clearBtn">清空</button>
+            </div>
+            <div class="hotkey-info">
+                <div class="hotkey-item"><span class="hotkey-key">Z</span><span>編輯</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">X</span><span>卡交換</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">K</span><span>卡色</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">A</span><span>套用</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">G</span><span>創建</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">V</span><span>預覽</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">Esc</span><span>取消</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">C</span><span>切牌</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">U</span><span>CSV 導出</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">Ctrl+X</span><span>Excel 匯出</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">Ctrl+P</span><span>列印</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">Tab</span><span>切換焦點</span></div>
+                <div class="hotkey-item"><span class="hotkey-key">?</span><span>快捷鍵提示</span></div>
+            </div>
+        </div>
+
+        <!-- 區塊三：切牌 / 導出工具 -->
+        <div class="panel-dark">
+            <div class="tool-buttons">
+                <div class="input-inline">
+                    <label for="cutPos">切牌張數</label>
+                    <input id="cutPos" type="number" min="0" value="0">
+                </div>
+                <button class="btn" id="btnCut">切牌</button>
+                <button class="btn" id="btnExportCombined">導出</button>
+                <button class="btn" id="btnPreview">預覽</button>
+                <button class="btn" id="btnSpeech">語音</button>
+                <button class="btn secondary" id="btnApplyTools">計算工具</button>
+            </div>
+        </div>
+
+        <!-- 區塊三：統計數據儀表板 -->
+        <div class="stats">
+            <div class="stat-card"><h3>總局數</h3><div class="value" id="totalRounds">0</div></div>
+            <div class="stat-card"><h3>莊家局數</h3><div class="value" id="bankerCount">0</div></div>
+            <div class="stat-card"><h3>閒家局數</h3><div class="value" id="playerCount">0</div></div>
+            <div class="stat-card"><h3>和局數</h3><div class="value" id="tieCount">0</div></div>
+            <div class="stat-card"><h3>S局訊號牌張數</h3><div class="value" id="sSignalCards">0</div></div>
+            <div class="stat-card"><h3>非S局訊號牌張數</h3><div class="value" id="tSignalCards">0</div></div>
+            <div class="stat-card"><h3>兩對局數</h3><div class="value" id="twoPairsCount">0</div></div>
+        </div>
+
+        <!-- 區塊四＋五：左表右誌 -->
+<div class="results-split">
+  <div class="left-pane">
+    <table class="rounds-table" id="roundsTable" style="display: none;">
+      <thead>
+        <tr>
+          <th>局號</th><th>段位</th><th>卡牌</th><th>卡色</th>
+          <th>結果</th><th>下一局</th><th>對調後結果</th><th>S局訊號</th><th>非S局訊號</th>
+        </tr>
+      </thead>
+      <tbody id="roundsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="right-pane">
+    <div class="log" id="logArea"></div>
+    <div class="mini-grid-wrapper">
+      <div class="grid-preview mini" id="statsGridPreview"><div class="grid-placeholder">尚無牌靴資料</div></div>
+    </div>
+    <div class="signal-summary" id="signalSummary"></div>
+  </div>
+</div>
+
+
+    <!-- =================================================================== -->
+    <!-- === 4. JavaScript 腳本區 (Scripting) === -->
+    <!-- =================================================================== -->
+
+    <!-- 腳本一：返回主頁按鈕的功能 -->
+
+    <script>
+        document.getElementById('backToMain').addEventListener('click', () => {
+            window.location.href = 'index.html'; // 點擊後跳轉到 index.html
+        });
+    </script>
+
+    <!-- 腳本二：花色圓形按鈕與舊版 checkbox 之間的橋接程式碼 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- 初始化圓形按鈕的點擊事件 ---
+            const suitButtons = document.querySelectorAll('.suit-button');
+            suitButtons.forEach(button => {
+                button.addEventListener('click', (event) => {
+                    event.preventDefault(); // 防止 <a> 標籤跳轉
+                    button.classList.toggle('selected'); // 切換選中/未選中狀態
+                    // 每次點擊都觸發一次張數計算
+                    if (typeof window.updateSignalCardCount === 'function') {
+                        window.updateSignalCardCount();
+                    }
+                });
+            });
+
+            // --- 讓舊的快速選擇函式也能操作新的圓形按鈕 ---
+            window.selectAllSuits = function() {
+                suitButtons.forEach(btn => btn.classList.add('selected'));
+                if (typeof window.updateSignalCardCount === 'function') { window.updateSignalCardCount(); }
+            }
+            window.clearAllSuits = function() {
+                suitButtons.forEach(btn => btn.classList.remove('selected'));
+                if (typeof window.updateSignalCardCount === 'function') { window.updateSignalCardCount(); }
+            }
+            window.selectRedSuits = function() {
+                suitButtons.forEach(btn => {
+                    const value = btn.dataset.value;
+                    if (value === '♥' || value === '♦') {
+                        btn.classList.add('selected');
+                    } else {
+                        btn.classList.remove('selected');
+                    }
+                });
+                if (typeof window.updateSignalCardCount === 'function') { window.updateSignalCardCount(); }
+            }
+
+            // --- 核心橋接：讓 signals.js 能讀取到圓形按鈕的選擇結果 ---
+            function getSelectedSuitsFromButtons() {
+                const selectedButtons = document.querySelectorAll('.suit-button.selected');
+                return Array.from(selectedButtons).map(btn => btn.dataset.value);
+            }
+
+            // --- 覆寫舊的函式，讓它們使用新的讀取方式 ---
+            if (typeof window.updateSignalCardCount === 'function') {
+                const originalUpdate = window.updateSignalCardCount; // 保留原始函式以備不時之需
+                window.updateSignalCardCount = function() {
+                    const suits = getSelectedSuitsFromButtons(); // 從圓形按鈕讀取
+                    const ranks = Array.from(document.querySelectorAll('.rank-checkbox:checked')).map(cb => cb.value);
+                    const totalCards = suits.length * ranks.length * 8;
+                    const countElement = document.getElementById('signalCardCount');
+                    if (countElement) {
+                        countElement.textContent = totalCards;
+                        if (totalCards === 0) countElement.style.color = '#dc3545';
+                        else if (totalCards <= 64) countElement.style.color = '#28a745';
+                        else if (totalCards <= 128) countElement.style.color = '#ffc107';
+                        else countElement.style.color = '#fd7e14';
+                    }
+                }
+            }
+            if (typeof window.applySignalConfig === 'function') {
+                const originalApply = window.applySignalConfig; // 保留原始函式
+                window.applySignalConfig = function() {
+                    const suits = getSelectedSuitsFromButtons(); // 從圓形按鈕讀取
+                    const ranks = Array.from(document.querySelectorAll('.rank-checkbox:checked')).map(cb => cb.value);
+                    
+                    // 更新到 signals.js 的核心邏輯中
+                    if (window.RedZeroLogic && typeof window.RedZeroLogic.updateSignalConfig === 'function') {
+                         window.RedZeroLogic.updateSignalConfig({ suits, ranks });
+                    } else if (typeof SIGNAL_CONFIG !== 'undefined') { // 備用方案
+                        SIGNAL_CONFIG.suits = suits;
+                        SIGNAL_CONFIG.ranks = ranks;
+                    }
+                    
+                    // 寫入日誌
+                    log(`訊號設定已更新：花色[${suits.join(',')}] 數字[${ranks.join(',')}]`, 'success');
+                    log(`預計訊號牌總數：${suits.length * ranks.length * 8}張`, 'info');
+                }
+            }
+
+            // --- 頁面載入時，依照已保存設定同步 UI ---
+            if (typeof window.syncSignalUiFromConfig === 'function') {
+                window.syncSignalUiFromConfig();
+            } else if (window.RedZeroLogic && typeof window.RedZeroLogic.syncSignalUiFromConfig === 'function') {
+                window.RedZeroLogic.syncSignalUiFromConfig();
+            }
+            if (typeof window.updateSignalCardCount === 'function') window.updateSignalCardCount();
+        });
+    </script>
+
+    <!-- 腳本三：引用您的核心邏輯檔案 -->
+    <script src="signals.js"></script>
+</body>
+</html>

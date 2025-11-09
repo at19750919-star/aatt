@@ -3,17 +3,22 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>WAA 理牌 v2.0</title>
+    <title>AT v2.0</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="light-theme.css">
-    <link rel="stylesheet" href="calc_widget.css">
     <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 </head>
 <body>
     <!-- 🎨 主題切換按鈕 -->
-    <button class="theme-toggle" id="themeToggle" title="切換淺色/暗色主題">
-        🌙
-    </button>
+    <!-- 原本的主題切換按鈕 (移除或註解掉) -->
+<!-- <button class="theme-toggle" id="themeToggle" title="切換淺色/暗色主題">
+    🌙
+</button> -->
+
+<!-- 🔥 新的:訊號設定按鈕 -->
+<button class="theme-toggle" id="signalConfigBtn" title="開啟訊號設定頁面 (可自訂花色與數字)">
+    ⚙️
+</button>
     
     <main class="container">
         <!-- 主要 2x2 網格佈局 -->
@@ -31,9 +36,6 @@
                             <label>訊號規則</label>
                             <select id="signalRule">
                                 <option value="suit" selected>花色</option>
-                                <option value="red0">紅0（♥/♦ 的 0 點）</option>
-                                <option value="backcolor">背色模式（BBBR/RRRB）</option>
-                                <option value="zero0">0 點（任意花色）</option>
                             </select>
                         </div>
                         <div class="input-group-compact">
@@ -113,7 +115,6 @@
                         <button class="btn btn-secondary" id="btnCancelEdit">取消</button>
                         <button class="btn btn-confirm" id="btnApplyChanges">套用</button>
                         <button class="btn btn-image-only" id="btnTestImage" title="測試圖片（卡交換）"></button>
-                        <button class="btn btn-warning" id="btnRedZeroPage" style="display: none;" title="跳轉到紅色0點牌專用頁面">紅0頁面</button>
                     </div>
                     <!-- 狀態訊息顯示區 -->
                     <div class="status-message" id="statusMessage" style="display: none;"></div>
@@ -165,7 +166,8 @@
     <!-- 原始 Toast 和 Modal (結構不變) -->
     <div class="toast" id="toast"></div>
     <div class="modal" id="previewModal">...</div>
-    <script src="script.js"></script>
-    <script src="signals.js"></script>
+        <!-- ... 其他 HTML 內容 ... -->
+
+    <script src="script.js"></script> 
 </body>
 </html>
